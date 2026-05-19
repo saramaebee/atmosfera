@@ -11,13 +11,15 @@ import { cityDisplayName, resolveCitiesOrReply } from '../lib/cities';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
+type ChartChoice = 'both' | 'heatmap' | 'muggy';
+
 export class CompareCommand extends Command {
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
         builder
           .setName('compare')
-          .setDescription('Compare two cities — muggy probability + temperature heatmap')
+          .setDescription('Compare two cities — temperature heatmap and/or muggy probability')
           .addStringOption((opt) =>
             opt
               .setName('city_a')
@@ -26,6 +28,17 @@ export class CompareCommand extends Command {
           )
           .addStringOption((opt) =>
             opt.setName('city_b').setDescription('Second city, e.g. "Tokyo"').setRequired(true),
+          )
+          .addStringOption((opt) =>
+            opt
+              .setName('chart')
+              .setDescription('Which chart to show (default: heatmap)')
+              .setRequired(false)
+              .addChoices(
+                { name: 'Temperature heatmap', value: 'heatmap' },
+                { name: 'Muggy probability', value: 'muggy' },
+                { name: 'Both', value: 'both' },
+              ),
           ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
     );
@@ -34,18 +47,16 @@ export class CompareCommand extends Command {
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const queryA = interaction.options.getString('city_a', true);
     const queryB = interaction.options.getString('city_b', true);
+    const chart = (interaction.options.getString('chart') ?? 'heatmap') as ChartChoice;
 
     const cities = await resolveCitiesOrReply(interaction, [queryA, queryB]);
     if (!cities) return;
 
     const [cityA, cityB] = cities;
-    if (!cityA || !cityB) return; // invariant: length 2 in success path
+    if (!cityA || !cityB) return;
 
     await interaction.deferReply();
 
-    // Build cubes in parallel (Open-Meteo fetch is rate-limited per-host but
-    // parallel is fine for two cities; the slow path is the year-by-year fetch
-    // inside each cube build).
     const [cubeA, cubeB] = await Promise.all([
       loadClimateCube({
         latitude: cityA.latitude,
@@ -64,19 +75,21 @@ export class CompareCommand extends Command {
       { name: cityB.canonicalName, cube: cubeB },
     ];
 
-    const muggySvg = renderMuggyComparisonSvg(series);
-    const heatmapSvg = renderTemperatureComparisonSvg(series);
-    const muggyPng = svgToPng(muggySvg);
-    const heatmapPng = svgToPng(heatmapSvg);
-
     const slug = `${slugify(cityA.canonicalName)}-vs-${slugify(cityB.canonicalName)}`;
+    const files: AttachmentBuilder[] = [];
+
+    if (chart === 'heatmap' || chart === 'both') {
+      const png = svgToPng(renderTemperatureComparisonSvg(series));
+      files.push(new AttachmentBuilder(png, { name: `heatmap-${slug}.png` }));
+    }
+    if (chart === 'muggy' || chart === 'both') {
+      const png = svgToPng(renderMuggyComparisonSvg(series));
+      files.push(new AttachmentBuilder(png, { name: `muggy-${slug}.png` }));
+    }
 
     await interaction.editReply({
       content: `**${cityDisplayName(cityA)}** vs **${cityDisplayName(cityB)}** — climatology ${cubeA.window.startYear}–${cubeA.window.endYear}.`,
-      files: [
-        new AttachmentBuilder(heatmapPng, { name: `heatmap-${slug}.png` }),
-        new AttachmentBuilder(muggyPng, { name: `muggy-${slug}.png` }),
-      ],
+      files,
     });
   }
 }
