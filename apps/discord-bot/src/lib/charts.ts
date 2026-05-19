@@ -1,5 +1,6 @@
 import {
   type CitySeries,
+  compareCubesCanonical,
   renderChartCached,
   renderMuggyComparisonSvg,
   renderTemperatureComparisonSvg,
@@ -66,18 +67,26 @@ function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): st
  * followUp.
  */
 export async function buildRenderedMessage(req: RenderRequest): Promise<RenderedMessage> {
-  const cubes = await Promise.all(
+  const loaded = await Promise.all(
     req.cities.map((c) =>
       loadClimateCube({ latitude: c.latitude, longitude: c.longitude, timezone: c.timezone }),
     ),
   );
 
-  const series: CitySeries[] = req.cities.map((c, i) => ({
-    name: c.canonicalName,
-    cube: cubes[i]!,
+  // Canonicalize order so swapped user input ("B vs A") hits the same cache
+  // entry as ("A vs B"). Cube/city/series stay aligned via a paired sort.
+  const paired = req.cities
+    .map((city, i) => ({ city, cube: loaded[i]! }))
+    .sort((a, b) => compareCubesCanonical(a.cube, b.cube));
+  const cities = paired.map((p) => p.city);
+  const cubes = paired.map((p) => p.cube);
+
+  const series: CitySeries[] = paired.map((p) => ({
+    name: p.city.canonicalName,
+    cube: p.cube,
   }));
 
-  const slug = citiesSlug(req.cities);
+  const slug = citiesSlug(cities);
   const files: AttachmentBuilder[] = [];
 
   const attach = (
@@ -109,7 +118,7 @@ export async function buildRenderedMessage(req: RenderRequest): Promise<Rendered
   }
 
   const content = req.roast
-    ? roastedContent(req.cities, cubes, req.roast)
-    : headline(req.command, req.cities, cubes);
+    ? roastedContent(cities, cubes, req.roast)
+    : headline(req.command, cities, cubes);
   return { content, files };
 }

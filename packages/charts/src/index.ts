@@ -11,7 +11,12 @@ export { TEMPERATURE_BANDS, colorForCelsius, bandForCelsius } from './palette';
 export { computeTwilightYear, darkHours } from './twilight';
 export type { DayTwilight } from './twilight';
 export type { TemperatureBand } from './palette';
-export { type ChartKind, chartCachePath, renderChartCached } from './cache';
+export {
+  type ChartKind,
+  chartCachePath,
+  compareCubesCanonical,
+  renderChartCached,
+} from './cache';
 export {
   type ChartOrientation,
   type MonthAxis,

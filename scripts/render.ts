@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   type CitySeries,
+  compareCubesCanonical,
   renderChartCached,
   renderMuggyComparisonSvg,
   renderTemperatureComparisonSvg,
@@ -109,6 +110,10 @@ async function main(): Promise<void> {
     series.push({ name: city.canonicalName, cube });
   }
 
+  // Canonicalize order so swapped user input hits the same cache entry as
+  // the Discord bot path.
+  series.sort((a, b) => compareCubesCanonical(a.cube, b.cube));
+
   const cubes = series.map((s) => s.cube);
   const png =
     args.chart === 'muggy'
@@ -117,7 +122,8 @@ async function main(): Promise<void> {
         ? renderChartCached('wetday', cubes, () => renderWetDayComparisonSvg(series))
         : renderChartCached('heatmap', cubes, () => renderTemperatureComparisonSvg(series));
 
-  const outPath = args.out ?? `out/${args.chart}-${args.cities.map(slugify).join('-vs-')}.png`;
+  const outPath =
+    args.out ?? `out/${args.chart}-${series.map((s) => slugify(s.name)).join('-vs-')}.png`;
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, png);
 

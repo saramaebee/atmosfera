@@ -11,12 +11,24 @@ export type ChartKind = 'muggy' | 'heatmap' | 'wetday';
 const RENDER_VERSION = 'v3';
 
 /**
+ * Comparator that imposes a canonical input order on chart inputs. Callers
+ * sort cubes (and any parallel arrays like City[]) with this before rendering
+ * so swapping user-typed order still hits the same cache entry. Latitude then
+ * longitude — both already in the cube and stable across calls.
+ */
+export function compareCubesCanonical(a: ClimateCube, b: ClimateCube): number {
+  return a.latitude - b.latitude || a.longitude - b.longitude;
+}
+
+/**
  * Cache key combines the chart kind with every input cube's fingerprint
  * (lat/lon/version). Cube version bumps automatically invalidate; otherwise
  * the file is reused indefinitely.
  *
- * Order-sensitive: BA vs Reykjavik renders the BA series first; flipping the
- * order produces a different chart and a different cache entry. Intentional.
+ * The key itself is order-sensitive — canonical ordering is a caller contract
+ * enforced upstream via compareCubesCanonical, which also reorders parallel
+ * City/series arrays so chart titles, panel order, and legend colors all stay
+ * consistent with the cached PNG.
  */
 function chartCacheKey(kind: ChartKind, cubes: ClimateCube[]): string {
   const fingerprint = cubes
