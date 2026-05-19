@@ -8,7 +8,7 @@ export type ChartKind = 'muggy' | 'heatmap' | 'wetday';
 
 // Bumped when render output changes for the same inputs (e.g. hemisphere-aware
 // month axis on heatmaps). Mixed into the cache key so old PNGs are skipped.
-const RENDER_VERSION = 'v2';
+const RENDER_VERSION = 'v3';
 
 /**
  * Cache key combines the chart kind with every input cube's fingerprint

@@ -22,7 +22,10 @@ fi
 
 echo "==> Installing system deps"
 sudo apt-get update -qq
-sudo apt-get install -y -qq curl git unzip ca-certificates
+# fonts-dejavu-core + fontconfig: resvg falls back to system fonts when
+# rasterizing the chart SVGs. Without a real sans-serif on disk, every <text>
+# element silently drops and charts render with no labels.
+sudo apt-get install -y -qq curl git unzip ca-certificates fonts-dejavu-core fontconfig
 
 echo "==> Installing Bun (per-user at ~/.bun)"
 if [ ! -x "$HOME/.bun/bin/bun" ]; then
