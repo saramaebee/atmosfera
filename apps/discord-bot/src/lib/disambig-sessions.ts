@@ -22,6 +22,8 @@ export interface DisambigSession {
   userId: string;
   guildId?: string;
   createdAt: number;
+  /** Whether the next selection should be persisted as a user-scoped alias. Toggleable per session. */
+  saveAlias: boolean;
 }
 
 const TTL_MS = 5 * 60 * 1000;

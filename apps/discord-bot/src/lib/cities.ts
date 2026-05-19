@@ -3,7 +3,10 @@ import { type ResolveResult, formatCandidate, resolveCity } from '@atmosfera/geo
 import { container } from '@sapphire/framework';
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   type ChatInputCommandInteraction,
+  type MessageActionRowComponentBuilder,
   MessageFlags,
   StringSelectMenuBuilder,
 } from 'discord.js';
@@ -81,6 +84,7 @@ export async function resolveCitiesOrPrompt(
     userId: interaction.user.id,
     guildId: interaction.guildId ?? undefined,
     createdAt: Date.now(),
+    saveAlias: true,
   };
   const sessionId = createSession(session);
   const slotIdx = nextPendingSlot(session)!;
@@ -95,7 +99,10 @@ export function buildMenuPayload(
   sessionId: string,
   session: DisambigSession,
   slotIdx: number,
-): { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] } {
+): {
+  content: string;
+  components: ActionRowBuilder<MessageActionRowComponentBuilder>[];
+} {
   const slot = session.slots[slotIdx]!;
   const candidates = slot.candidates!;
 
@@ -115,12 +122,19 @@ export function buildMenuPayload(
       })),
     );
 
-  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  const toggle = new ButtonBuilder()
+    .setCustomId(`atm:disambig-toggle:${sessionId}:${slotIdx}`)
+    .setLabel(session.saveAlias ? '☑ Save as alias' : '☐ Save as alias')
+    .setStyle(session.saveAlias ? ButtonStyle.Success : ButtonStyle.Secondary);
+
+  const menuRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(menu);
+  const buttonRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(toggle);
+
   const pendingCount = session.slots.filter((s) => s.city === null).length;
   const progress = pendingCount > 1 ? ` _(${pendingCount} cities still to pick)_` : '';
 
   return {
     content: `**"${slot.query}"** matches multiple cities — pick one${progress}:`,
-    components: [row],
+    components: [menuRow, buttonRow],
   };
 }

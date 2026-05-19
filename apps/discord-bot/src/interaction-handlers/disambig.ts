@@ -66,15 +66,16 @@ export class DisambigHandler extends InteractionHandler {
       return;
     }
 
-    // Persist: upsert city, save user-scoped alias so the same query resolves
-    // instantly next time for this user.
+    // Upsert the city either way; only persist the alias if the user opted in.
     const city = upsertCity(container.db, candidateToCityInput(candidate));
-    saveAlias(container.db, {
-      query: slot.query,
-      scope: 'user',
-      userId: session.userId,
-      cityId: city.id,
-    });
+    if (session.saveAlias) {
+      saveAlias(container.db, {
+        query: slot.query,
+        scope: 'user',
+        userId: session.userId,
+        cityId: city.id,
+      });
+    }
 
     // Advance session state
     session.slots[slotIdx] = { query: slot.query, city, candidates: null };
@@ -91,8 +92,11 @@ export class DisambigHandler extends InteractionHandler {
     deleteSession(sessionId);
 
     const cities = session.slots.map((s) => s.city!);
+    const lastPickMsg = session.saveAlias
+      ? `Saved **${cityDisplayName(city)}** as your alias for **"${slot.query}"**. Generating chart…`
+      : `Picked **${cityDisplayName(city)}** for **"${slot.query}"**. Generating chart…`;
     await interaction.update({
-      content: `Saved **${cityDisplayName(city)}** as your alias for **"${slot.query}"**. Generating chart…`,
+      content: lastPickMsg,
       components: [],
     });
 
