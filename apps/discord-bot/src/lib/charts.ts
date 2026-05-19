@@ -10,7 +10,7 @@ import type { City } from '@atmosfera/db';
 import { AttachmentBuilder } from 'discord.js';
 import { cityDisplayName } from './cities';
 
-export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare';
+export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
 export interface RenderRequest {
@@ -18,6 +18,9 @@ export interface RenderRequest {
   cities: City[];
   /** Only meaningful for command='compare'. */
   chart?: CompareChartChoice;
+  /** When present, the roast text becomes the message content and the
+   * usual headline moves to a small footer line. */
+  roast?: string;
 }
 
 export interface RenderedMessage {
@@ -48,6 +51,12 @@ function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): s
     return `**${cityDisplayName(cities[0]!)}** — wet-day probability (${window}).`;
   }
   return `**${cityDisplayName(cities[0]!)}** — temperature climatology (${window}).`;
+}
+
+function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): string {
+  const window = `climatology ${cubes[0]!.window.startYear}–${cubes[0]!.window.endYear}`;
+  const cityList = cities.map((c) => cityDisplayName(c)).join(' vs ');
+  return `${roast}\n-# ${cityList} · ${window}`;
 }
 
 /**
@@ -99,5 +108,8 @@ export async function buildRenderedMessage(req: RenderRequest): Promise<Rendered
     }
   }
 
-  return { content: headline(req.command, req.cities, cubes), files };
+  const content = req.roast
+    ? roastedContent(req.cities, cubes, req.roast)
+    : headline(req.command, req.cities, cubes);
+  return { content, files };
 }

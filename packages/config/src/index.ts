@@ -8,6 +8,7 @@ const envSchema = z.object({
   NOMINATIM_USER_AGENT: z
     .string()
     .default('atmosfera/0.1 (https://github.com/saratonin/atmosfera)'),
+  GEMINI_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
