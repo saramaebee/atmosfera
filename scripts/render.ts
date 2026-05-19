@@ -7,7 +7,9 @@ import {
   svgToPng,
 } from '@atmosfera/charts';
 import { loadClimateCube } from '@atmosfera/climate';
-import { formatCandidate, geocodeTop } from '@atmosfera/geocode';
+import { dbPathFromUrl, getEnv } from '@atmosfera/config';
+import { createDb, migrateDb } from '@atmosfera/db';
+import { formatCandidate, resolveCity } from '@atmosfera/geocode';
 
 type ChartKind = 'muggy' | 'heatmap';
 const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap'];
@@ -57,24 +59,53 @@ function slugify(s: string): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const t0 = performance.now();
+  const env = getEnv();
 
+  const dbPath = dbPathFromUrl(env.DATABASE_URL);
+  mkdirSync(dirname(dbPath), { recursive: true });
+  const db = createDb(dbPath);
+  migrateDb(db);
+
+  const t0 = performance.now();
   const series: CitySeries[] = [];
+
   for (const query of args.cities) {
-    process.stderr.write(`geocoding "${query}"…\n`);
-    const candidate = await geocodeTop(query);
+    process.stderr.write(`resolving "${query}"…\n`);
+    const result = await resolveCity(db, query);
+
+    if (result.kind === 'none') {
+      throw new Error(
+        `No geocoding matches for "${query}". Try adding a qualifier, e.g. "${query}, France".`,
+      );
+    }
+    if (result.kind === 'ambiguous') {
+      process.stderr.write(`\nAmbiguous "${query}" — multiple candidates:\n`);
+      for (const c of result.candidates) {
+        const pop = c.population !== null ? `pop ${c.population.toLocaleString()}` : 'pop ?';
+        process.stderr.write(`  • ${formatCandidate(c)}  (${pop})\n`);
+      }
+      const top = result.candidates[0]!;
+      const exampleQualifier = top.region ?? top.country;
+      process.stderr.write(
+        `\nRe-run with a qualifier, e.g. "${query}, ${exampleQualifier}". (Discord disambiguation menu lands in Phase 4D.)\n`,
+      );
+      process.exit(2);
+    }
+
+    const city = result.city;
+    const regionPart = city.region ? `, ${city.region}` : '';
     process.stderr.write(
-      `  → ${formatCandidate(candidate)}  (${candidate.latitude.toFixed(4)}, ${candidate.longitude.toFixed(4)}, tz=${candidate.timezone})\n`,
+      `  → ${city.canonicalName}${regionPart}, ${city.country}  (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}, tz=${city.timezone})  [${result.via}]\n`,
     );
 
     const cube = await loadClimateCube({
-      latitude: candidate.latitude,
-      longitude: candidate.longitude,
-      timezone: candidate.timezone,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      timezone: city.timezone,
       onProgress: (msg) => process.stderr.write(`  ${msg}\n`),
     });
 
-    series.push({ name: candidate.canonicalName, cube });
+    series.push({ name: city.canonicalName, cube });
   }
 
   const svg =

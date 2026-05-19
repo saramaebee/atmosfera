@@ -1,31 +1,28 @@
 import { describe, expect, it } from 'bun:test';
-import { sql } from 'drizzle-orm';
-import { createDb } from './client';
+import { createDb, migrateDb } from './client';
 import { cities } from './schema';
 
-describe('packages/db', () => {
-  it('round-trips a city via bun:sqlite + drizzle', () => {
-    const db = createDb(':memory:');
+function freshDb() {
+  const db = createDb(':memory:');
+  migrateDb(db);
+  return db;
+}
 
-    db.run(sql`CREATE TABLE cities (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      canonical_name TEXT NOT NULL,
-      region TEXT,
-      country TEXT NOT NULL,
-      latitude REAL NOT NULL,
-      longitude REAL NOT NULL,
-      timezone TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )`);
+describe('migrateDb + cities', () => {
+  it('runs migrations and round-trips a city', () => {
+    const db = freshDb();
 
     const inserted = db
       .insert(cities)
       .values({
         canonicalName: 'Buenos Aires',
         country: 'Argentina',
+        region: 'Buenos Aires F.D.',
         latitude: -34.6037,
         longitude: -58.3816,
         timezone: 'America/Argentina/Buenos_Aires',
+        population: 13_076_300,
+        openMeteoId: 3435910,
         createdAt: new Date(),
       })
       .returning()
@@ -33,6 +30,7 @@ describe('packages/db', () => {
 
     expect(inserted).toHaveLength(1);
     expect(inserted[0]?.canonicalName).toBe('Buenos Aires');
+    expect(inserted[0]?.population).toBe(13_076_300);
 
     const found = db.select().from(cities).all();
     expect(found).toHaveLength(1);

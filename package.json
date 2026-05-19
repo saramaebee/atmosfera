@@ -16,6 +16,7 @@
     "@atmosfera/charts": "workspace:*",
     "@atmosfera/climate": "workspace:*",
     "@atmosfera/config": "workspace:*",
+    "@atmosfera/db": "workspace:*",
     "@atmosfera/geocode": "workspace:*"
   },
   "devDependencies": {
