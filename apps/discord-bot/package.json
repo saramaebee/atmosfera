@@ -1,0 +1,16 @@
+{
+  "name": "@atmosfera/discord-bot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@atmosfera/config": "workspace:*",
+    "@sapphire/framework": "^5.5.0",
+    "discord.js": "^14.26.4"
+  }
+}
