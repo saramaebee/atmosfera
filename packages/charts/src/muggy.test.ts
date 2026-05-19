@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { ClimateCube } from '@atmosfera/climate';
-import { renderMuggyComparisonSvg } from './muggy';
+import { renderMuggyComparisonSvg, renderWetDayComparisonSvg } from './muggy';
 import { svgToPng } from './raster';
 
 function makeSyntheticCube(name: string, peak: number): ClimateCube {
@@ -62,6 +62,19 @@ describe('renderMuggyComparisonSvg', () => {
       { name: 'A & B "test"', cube: makeSyntheticCube('A', 0.5) },
     ]);
     expect(svg).toContain('A &amp; B &quot;test&quot;');
+  });
+});
+
+describe('renderWetDayComparisonSvg', () => {
+  it('uses the wet-day probability series and the right title', () => {
+    const cube = makeSyntheticCube('Test', 0);
+    // give the synthetic cube a wet-day signal
+    for (let d = 0; d < 365; d++) {
+      cube.wetDayProbability[d] = 0.5 * Math.exp(-((d - 100) ** 2) / 5000);
+    }
+    const svg = renderWetDayComparisonSvg([{ name: 'Test', cube }]);
+    expect(svg).toContain('Wet-day probability');
+    expect(svg).toContain('Test ·'); // peak label
   });
 });
 

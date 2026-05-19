@@ -13,7 +13,6 @@ export const MUGGY_CHART_HEIGHT = 600;
 
 const MARGIN = { top: 90, right: 40, bottom: 60, left: 70 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-// 0-based day-of-year for the 1st of each month (non-leap)
 const MONTH_STARTS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
 const PEAK_LABEL_THRESHOLD = 0.05;
@@ -49,10 +48,21 @@ function monthDayFromDoy(doy: number): string {
   return '';
 }
 
-export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
-  if (cities.length === 0) throw new Error('renderMuggyComparisonSvg: no cities');
+/**
+ * Internal: shared renderer for any [365]-length probability series. Specialized
+ * by the chart title (which carries the threshold semantics) and the per-city
+ * accessor returning that city's probability array from its cube.
+ */
+function renderProbabilityComparisonSvg(
+  cities: CitySeries[],
+  spec: {
+    title: string;
+    accessor: (cube: ClimateCube) => number[];
+  },
+): string {
+  if (cities.length === 0) throw new Error('renderProbabilityComparisonSvg: no cities');
   if (cities.length > CITY_COLORS.length) {
-    throw new Error(`renderMuggyComparisonSvg: max ${CITY_COLORS.length} cities`);
+    throw new Error(`renderProbabilityComparisonSvg: max ${CITY_COLORS.length} cities`);
   }
 
   const innerWidth = MUGGY_CHART_WIDTH - MARGIN.left - MARGIN.right;
@@ -77,8 +87,9 @@ export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
   const cityShapes = cities
     .map((c, i) => {
       const color = CITY_COLORS[i]!;
-      const areaPath = areaGen(c.cube.muggyProbability) ?? '';
-      const linePath = lineGen(c.cube.muggyProbability) ?? '';
+      const series = spec.accessor(c.cube);
+      const areaPath = areaGen(series) ?? '';
+      const linePath = lineGen(series) ?? '';
       return `<path d="${areaPath}" fill="${color}" fill-opacity="0.10" />
       <path d="${linePath}" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" fill="none" />`;
     })
@@ -87,7 +98,8 @@ export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
   const peakAnnotations = cities
     .map((c, i) => {
       const color = CITY_COLORS[i]!;
-      const { index: doy, value } = argMax(c.cube.muggyProbability);
+      const series = spec.accessor(c.cube);
+      const { index: doy, value } = argMax(series);
       if (value < PEAK_LABEL_THRESHOLD) return '';
 
       const cx = xScale(doy);
@@ -95,7 +107,6 @@ export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
       const label = `${c.name} · ${Math.round(value * 100)}% · ${monthDayFromDoy(doy)}`;
       const labelY = cy - 14;
 
-      // Clamp label x so it stays inside the plot area
       const approxLabelHalfWidth = label.length * 4;
       const labelX = Math.max(
         approxLabelHalfWidth,
@@ -132,7 +143,7 @@ export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${MUGGY_CHART_WIDTH}" height="${MUGGY_CHART_HEIGHT}" viewBox="0 0 ${MUGGY_CHART_WIDTH} ${MUGGY_CHART_HEIGHT}">
   <rect width="${MUGGY_CHART_WIDTH}" height="${MUGGY_CHART_HEIGHT}" fill="#ffffff" />
-  <text x="${MARGIN.left}" y="34" font-size="22" font-weight="700" fill="#111827" font-family="sans-serif">Muggy probability — dew point ≥ 18°C</text>
+  <text x="${MARGIN.left}" y="34" font-size="22" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(spec.title)}</text>
   ${legend}
   <g transform="translate(${MARGIN.left},${MARGIN.top})">
     <rect x="0" y="0" width="${innerWidth}" height="${innerHeight}" fill="none" stroke="#cbd5e1" stroke-width="1" />
@@ -142,4 +153,18 @@ export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
       ${peakAnnotations}
   </g>
 </svg>`;
+}
+
+export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
+  return renderProbabilityComparisonSvg(cities, {
+    title: 'Muggy probability — dew point ≥ 18°C',
+    accessor: (cube) => cube.muggyProbability,
+  });
+}
+
+export function renderWetDayComparisonSvg(cities: CitySeries[]): string {
+  return renderProbabilityComparisonSvg(cities, {
+    title: 'Wet-day probability — ≥ 1 mm of rain in a day',
+    accessor: (cube) => cube.wetDayProbability,
+  });
 }

@@ -28,7 +28,8 @@ export class CompareCommand extends Command {
               .addChoices(
                 { name: 'Temperature heatmap', value: 'heatmap' },
                 { name: 'Muggy probability', value: 'muggy' },
-                { name: 'Both', value: 'both' },
+                { name: 'Wet-day probability', value: 'wetday' },
+                { name: 'All three', value: 'all' },
               ),
           ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },

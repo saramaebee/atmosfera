@@ -2,17 +2,18 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   type CitySeries,
+  renderChartCached,
   renderMuggyComparisonSvg,
   renderTemperatureComparisonSvg,
-  svgToPng,
+  renderWetDayComparisonSvg,
 } from '@atmosfera/charts';
 import { loadClimateCube } from '@atmosfera/climate';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { formatCandidate, resolveCity } from '@atmosfera/geocode';
 
-type ChartKind = 'muggy' | 'heatmap';
-const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap'];
+type ChartKind = 'muggy' | 'heatmap' | 'wetday';
+const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap', 'wetday'];
 
 interface Args {
   cities: string[];
@@ -108,11 +109,13 @@ async function main(): Promise<void> {
     series.push({ name: city.canonicalName, cube });
   }
 
-  const svg =
+  const cubes = series.map((s) => s.cube);
+  const png =
     args.chart === 'muggy'
-      ? renderMuggyComparisonSvg(series)
-      : renderTemperatureComparisonSvg(series);
-  const png = svgToPng(svg);
+      ? renderChartCached('muggy', cubes, () => renderMuggyComparisonSvg(series))
+      : args.chart === 'wetday'
+        ? renderChartCached('wetday', cubes, () => renderWetDayComparisonSvg(series))
+        : renderChartCached('heatmap', cubes, () => renderTemperatureComparisonSvg(series));
 
   const outPath = args.out ?? `out/${args.chart}-${args.cities.map(slugify).join('-vs-')}.png`;
   mkdirSync(dirname(outPath), { recursive: true });

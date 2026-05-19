@@ -1,16 +1,17 @@
 import {
   type CitySeries,
+  renderChartCached,
   renderMuggyComparisonSvg,
   renderTemperatureComparisonSvg,
-  svgToPng,
+  renderWetDayComparisonSvg,
 } from '@atmosfera/charts';
 import { type ClimateCube, loadClimateCube } from '@atmosfera/climate';
 import type { City } from '@atmosfera/db';
 import { AttachmentBuilder } from 'discord.js';
 import { cityDisplayName } from './cities';
 
-export type CommandKind = 'muggy' | 'climate' | 'compare';
-export type CompareChartChoice = 'heatmap' | 'muggy' | 'both';
+export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare';
+export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
 export interface RenderRequest {
   command: CommandKind;
@@ -43,13 +44,17 @@ function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): s
   if (command === 'muggy') {
     return `**${cityDisplayName(cities[0]!)}** — muggy probability (${window}).`;
   }
+  if (command === 'wet') {
+    return `**${cityDisplayName(cities[0]!)}** — wet-day probability (${window}).`;
+  }
   return `**${cityDisplayName(cities[0]!)}** — temperature climatology (${window}).`;
 }
 
 /**
- * Build the public message for any of the three commands. Loads cubes,
- * rasterizes the appropriate SVG(s), returns the content+files payload that
- * the caller passes to editReply (initial flow) or followUp (post-disambig).
+ * Build the public message payload for any of the commands. Loads cubes,
+ * rasterizes the appropriate SVG(s) (via renderChartCached — cache-hit returns
+ * a buffer in microseconds), returns the content + files for editReply or
+ * followUp.
  */
 export async function buildRenderedMessage(req: RenderRequest): Promise<RenderedMessage> {
   const cubes = await Promise.all(
@@ -66,21 +71,31 @@ export async function buildRenderedMessage(req: RenderRequest): Promise<Rendered
   const slug = citiesSlug(req.cities);
   const files: AttachmentBuilder[] = [];
 
+  const attach = (
+    kind: 'muggy' | 'heatmap' | 'wetday',
+    render: () => string,
+    filenamePrefix: string,
+  ) => {
+    const png = renderChartCached(kind, cubes, render);
+    files.push(new AttachmentBuilder(png, { name: `${filenamePrefix}-${slug}.png` }));
+  };
+
   if (req.command === 'muggy') {
-    const png = svgToPng(renderMuggyComparisonSvg(series));
-    files.push(new AttachmentBuilder(png, { name: `muggy-${slug}.png` }));
+    attach('muggy', () => renderMuggyComparisonSvg(series), 'muggy');
   } else if (req.command === 'climate') {
-    const png = svgToPng(renderTemperatureComparisonSvg(series));
-    files.push(new AttachmentBuilder(png, { name: `climate-${slug}.png` }));
+    attach('heatmap', () => renderTemperatureComparisonSvg(series), 'climate');
+  } else if (req.command === 'wet') {
+    attach('wetday', () => renderWetDayComparisonSvg(series), 'wetday');
   } else {
     const chart = req.chart ?? 'heatmap';
-    if (chart === 'heatmap' || chart === 'both') {
-      const png = svgToPng(renderTemperatureComparisonSvg(series));
-      files.push(new AttachmentBuilder(png, { name: `heatmap-${slug}.png` }));
+    if (chart === 'heatmap' || chart === 'all') {
+      attach('heatmap', () => renderTemperatureComparisonSvg(series), 'heatmap');
     }
-    if (chart === 'muggy' || chart === 'both') {
-      const png = svgToPng(renderMuggyComparisonSvg(series));
-      files.push(new AttachmentBuilder(png, { name: `muggy-${slug}.png` }));
+    if (chart === 'muggy' || chart === 'all') {
+      attach('muggy', () => renderMuggyComparisonSvg(series), 'muggy');
+    }
+    if (chart === 'wetday' || chart === 'all') {
+      attach('wetday', () => renderWetDayComparisonSvg(series), 'wetday');
     }
   }
 
