@@ -1,8 +1,6 @@
-import { renderTemperatureComparisonSvg, svgToPng } from '@atmosfera/charts';
-import { loadClimateCube } from '@atmosfera/climate';
 import { Command } from '@sapphire/framework';
-import { AttachmentBuilder } from 'discord.js';
-import { cityDisplayName, resolveCityOrReply } from '../lib/cities';
+import { buildRenderedMessage } from '../lib/charts';
+import { resolveCitiesOrPrompt } from '../lib/cities';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
@@ -26,34 +24,11 @@ export class ClimateCommand extends Command {
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const query = interaction.options.getString('city', true);
 
-    const city = await resolveCityOrReply(interaction, query);
-    if (!city) return;
+    const cities = await resolveCitiesOrPrompt(interaction, 'climate', [query]);
+    if (!cities) return;
 
     await interaction.deferReply();
-
-    const cube = await loadClimateCube({
-      latitude: city.latitude,
-      longitude: city.longitude,
-      timezone: city.timezone,
-    });
-
-    const svg = renderTemperatureComparisonSvg([{ name: city.canonicalName, cube }]);
-    const png = svgToPng(svg);
-
-    const attachment = new AttachmentBuilder(png, {
-      name: `climate-${slugify(city.canonicalName)}.png`,
-    });
-
-    await interaction.editReply({
-      content: `**${cityDisplayName(city)}** — temperature climatology (${cube.window.startYear}–${cube.window.endYear}).`,
-      files: [attachment],
-    });
+    const rendered = await buildRenderedMessage({ command: 'climate', cities });
+    await interaction.editReply(rendered);
   }
-}
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 }

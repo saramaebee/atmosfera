@@ -1,54 +1,19 @@
 import type { City } from '@atmosfera/db';
 import { type ResolveResult, formatCandidate, resolveCity } from '@atmosfera/geocode';
 import { container } from '@sapphire/framework';
-import { type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-
-/**
- * Resolve a city query. On success, return the City — the caller may then
- * defer the interaction publicly and proceed with the (slow) render.
- *
- * On none/ambiguous, send an *ephemeral* reply directly and return null. The
- * caller should just bail. We don't defer first because:
- *   1. resolveCity is usually <1s (alias hit or Open-Meteo); within Discord's
- *      3-second ack budget.
- *   2. Replying ephemerally after a public defer is awkward and requires a
- *      followup-then-delete dance. Replying directly keeps the wrong-input
- *      flow out of the public timeline entirely.
- */
-export async function resolveCityOrReply(
-  interaction: ChatInputCommandInteraction,
-  query: string,
-): Promise<City | null> {
-  const result = await resolveCity(container.db, query, {
-    guildId: interaction.guildId ?? undefined,
-    userId: interaction.user.id,
-  });
-
-  if (result.kind === 'resolved') return result.city;
-
-  if (result.kind === 'none') {
-    await interaction.reply({
-      content: `No matches for **"${query}"**. Try a qualifier like \`${query}, France\`.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return null;
-  }
-
-  // ambiguous — Phase 4D will replace this text list with a select menu
-  const top = result.candidates[0]!;
-  const exampleQualifier = top.region ?? top.country;
-  const lines = result.candidates
-    .map((c, i) => {
-      const pop = c.population !== null ? ` (pop ${c.population.toLocaleString()})` : '';
-      return `${i + 1}. ${formatCandidate(c)}${pop}`;
-    })
-    .join('\n');
-  await interaction.reply({
-    content: `**"${query}"** matches multiple cities — please be more specific:\n${lines}\n\nTry e.g. \`${query}, ${exampleQualifier}\``,
-    flags: MessageFlags.Ephemeral,
-  });
-  return null;
-}
+import {
+  ActionRowBuilder,
+  type ChatInputCommandInteraction,
+  MessageFlags,
+  StringSelectMenuBuilder,
+} from 'discord.js';
+import type { CommandKind, CompareChartChoice } from './charts';
+import {
+  type DisambigSession,
+  type QuerySlot,
+  createSession,
+  nextPendingSlot,
+} from './disambig-sessions';
 
 export function cityDisplayName(city: City): string {
   const parts = [city.canonicalName];
@@ -58,13 +23,21 @@ export function cityDisplayName(city: City): string {
 }
 
 /**
- * Resolve multiple city queries in parallel. On success, return Cities in
- * input order. If any query is ambiguous or has no match, send one combined
- * ephemeral reply listing every problem at once and return null.
+ * Resolve N city queries for a slash command.
+ *  - All resolved → return the Cities in input order. Caller defers + renders.
+ *  - Any 'none' → ephemeral error reply listing each failure; return null.
+ *  - Any 'ambiguous' (and no 'none') → spin up a disambig session, send an
+ *    ephemeral StringSelectMenu for the first ambiguous slot; return null.
+ *    The InteractionHandler will pick up from there.
+ *
+ * resolveCity is fast (<1s typical) so the slash command interaction can be
+ * replied to directly without a defer.
  */
-export async function resolveCitiesOrReply(
+export async function resolveCitiesOrPrompt(
   interaction: ChatInputCommandInteraction,
+  command: CommandKind,
   queries: string[],
+  chart?: CompareChartChoice,
 ): Promise<City[] | null> {
   const results = await Promise.all(
     queries.map((q) =>
@@ -75,43 +48,79 @@ export async function resolveCitiesOrReply(
     ),
   );
 
-  const failures: { query: string; result: ResolveResult }[] = [];
-  for (let i = 0; i < queries.length; i++) {
-    const r = results[i]!;
-    if (r.kind !== 'resolved') failures.push({ query: queries[i]!, result: r });
+  // Fail fast on any 'none' — these aren't fixable from a menu.
+  const noneIdx: number[] = [];
+  for (let i = 0; i < results.length; i++) {
+    if (results[i]!.kind === 'none') noneIdx.push(i);
   }
-
-  if (failures.length === 0) {
-    return results.map((r) => {
-      // r.kind === 'resolved' here — invariant from failures.length === 0
-      if (r.kind !== 'resolved') throw new Error('unreachable');
-      return r.city;
+  if (noneIdx.length > 0) {
+    const messages = noneIdx.map(
+      (i) => `**"${queries[i]}"** — no matches. Try a qualifier like \`${queries[i]}, France\`.`,
+    );
+    await interaction.reply({
+      content: messages.join('\n\n'),
+      flags: MessageFlags.Ephemeral,
     });
+    return null;
   }
 
-  const sections = failures.map(({ query, result }) => formatFailure(query, result));
-  await interaction.reply({
-    content: sections.join('\n\n'),
-    flags: MessageFlags.Ephemeral,
+  const slots: QuerySlot[] = queries.map((q, i) => {
+    const r = results[i] as Exclude<ResolveResult, { kind: 'none' }>;
+    if (r.kind === 'resolved') return { query: q, city: r.city, candidates: null };
+    return { query: q, city: null, candidates: r.candidates };
   });
+
+  if (slots.every((s) => s.city !== null)) {
+    return slots.map((s) => s.city!);
+  }
+
+  const session: DisambigSession = {
+    command,
+    slots,
+    chart,
+    userId: interaction.user.id,
+    guildId: interaction.guildId ?? undefined,
+    createdAt: Date.now(),
+  };
+  const sessionId = createSession(session);
+  const slotIdx = nextPendingSlot(session)!;
+
+  const payload = buildMenuPayload(sessionId, session, slotIdx);
+  await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
   return null;
 }
 
-function formatFailure(query: string, result: ResolveResult): string {
-  if (result.kind === 'none') {
-    return `**"${query}"** — no matches. Try a qualifier like \`${query}, France\`.`;
-  }
-  if (result.kind === 'ambiguous') {
-    const top = result.candidates[0]!;
-    const exampleQualifier = top.region ?? top.country;
-    const lines = result.candidates
-      .map((c, i) => {
-        const pop = c.population !== null ? ` (pop ${c.population.toLocaleString()})` : '';
-        return `${i + 1}. ${formatCandidate(c)}${pop}`;
-      })
-      .join('\n');
-    return `**"${query}"** — multiple matches, please be specific:\n${lines}\n\nTry e.g. \`${query}, ${exampleQualifier}\``;
-  }
-  // resolved — shouldn't happen since we filter
-  return '';
+/** Build the ephemeral message + select menu for one ambiguous slot. */
+export function buildMenuPayload(
+  sessionId: string,
+  session: DisambigSession,
+  slotIdx: number,
+): { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] } {
+  const slot = session.slots[slotIdx]!;
+  const candidates = slot.candidates!;
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`atm:disambig:${sessionId}:${slotIdx}`)
+    .setPlaceholder('Pick the right city')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      candidates.map((c, i) => ({
+        label: formatCandidate(c).slice(0, 100),
+        value: String(i),
+        description:
+          c.population !== null
+            ? `Population ${c.population.toLocaleString()}`
+            : 'Population unknown',
+      })),
+    );
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  const pendingCount = session.slots.filter((s) => s.city === null).length;
+  const progress = pendingCount > 1 ? ` _(${pendingCount} cities still to pick)_` : '';
+
+  return {
+    content: `**"${slot.query}"** matches multiple cities — pick one${progress}:`,
+    components: [row],
+  };
 }
