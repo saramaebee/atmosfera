@@ -43,6 +43,83 @@ describe('renderTemperatureComparisonSvg', () => {
     expect(cellMatches?.length).toBeGreaterThanOrEqual(8760);
   });
 
+  it('rotates month labels to Jul..Jun for an extratropical southern city', () => {
+    const svg = renderTemperatureComparisonSvg([
+      { name: 'Buenos Aires', cube: makeSyntheticCube(15, -34.6, -58.4) },
+    ]);
+    const labels = [...svg.matchAll(/<text[^>]*>([A-Z][a-z]{2})<\/text>/g)]
+      .map((m) => m[1])
+      .filter(
+        (label): label is string =>
+          label !== undefined && /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(label),
+      );
+    expect(labels.slice(0, 12)).toEqual([
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+    ]);
+  });
+
+  it('keeps the calendar axis for a northern city', () => {
+    const svg = renderTemperatureComparisonSvg([
+      { name: 'Reykjavik', cube: makeSyntheticCube(5, 64.1, -21.9) },
+    ]);
+    const labels = [...svg.matchAll(/<text[^>]*>([A-Z][a-z]{2})<\/text>/g)]
+      .map((m) => m[1])
+      .filter(
+        (label): label is string =>
+          label !== undefined && /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(label),
+      );
+    expect(labels.slice(0, 12)).toEqual([
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]);
+  });
+
+  it('keeps the calendar axis for a tropical southern city', () => {
+    const svg = renderTemperatureComparisonSvg([
+      { name: 'Quito', cube: makeSyntheticCube(15, -0.18, -78.47) },
+    ]);
+    const labels = [...svg.matchAll(/<text[^>]*>([A-Z][a-z]{2})<\/text>/g)]
+      .map((m) => m[1])
+      .filter(
+        (label): label is string =>
+          label !== undefined && /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(label),
+      );
+    expect(labels[0]).toBe('Jan');
+  });
+
+  it('renders month labels per panel when comparing two cities', () => {
+    const svg = renderTemperatureComparisonSvg([
+      { name: 'Reykjavik', cube: makeSyntheticCube(5, 64.1, -21.9) },
+      { name: 'Buenos Aires', cube: makeSyntheticCube(15, -34.6, -58.4) },
+    ]);
+    // Each panel should emit one month-label row → 12 labels × 2 panels = 24.
+    const monthLabelMatches = [
+      ...svg.matchAll(/<text[^>]*>(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)<\/text>/g),
+    ];
+    expect(monthLabelMatches.length).toBe(24);
+  });
+
   it('rasterizes a two-city heatmap to a valid PNG', () => {
     const svg = renderTemperatureComparisonSvg([
       { name: 'A', cube: makeSyntheticCube(20, 30, 0) },

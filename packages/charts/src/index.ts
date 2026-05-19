@@ -12,3 +12,9 @@ export { computeTwilightYear, darkHours } from './twilight';
 export type { DayTwilight } from './twilight';
 export type { TemperatureBand } from './palette';
 export { type ChartKind, chartCachePath, renderChartCached } from './cache';
+export {
+  type ChartOrientation,
+  type MonthAxis,
+  monthAxis,
+  orientationForLatitude,
+} from './orientation';

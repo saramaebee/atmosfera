@@ -6,6 +6,10 @@ import { svgToPng } from './raster';
 
 export type ChartKind = 'muggy' | 'heatmap' | 'wetday';
 
+// Bumped when render output changes for the same inputs (e.g. hemisphere-aware
+// month axis on heatmaps). Mixed into the cache key so old PNGs are skipped.
+const RENDER_VERSION = 'v2';
+
 /**
  * Cache key combines the chart kind with every input cube's fingerprint
  * (lat/lon/version). Cube version bumps automatically invalidate; otherwise
@@ -18,7 +22,10 @@ function chartCacheKey(kind: ChartKind, cubes: ClimateCube[]): string {
   const fingerprint = cubes
     .map((c) => `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)},${c.version}`)
     .join('|');
-  return createHash('sha1').update(`${kind}|${fingerprint}`).digest('hex').slice(0, 16);
+  return createHash('sha1')
+    .update(`${RENDER_VERSION}|${kind}|${fingerprint}`)
+    .digest('hex')
+    .slice(0, 16);
 }
 
 export function chartCachePath(kind: ChartKind, cubes: ClimateCube[]): string {

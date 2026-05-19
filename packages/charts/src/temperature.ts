@@ -1,4 +1,5 @@
 import { type ClimateCube, gaussianSmooth1d } from '@atmosfera/climate';
+import { type MonthAxis, monthAxis, orientationForLatitude } from './orientation';
 import { TEMPERATURE_BANDS, colorForCelsius } from './palette';
 import { computeTwilightYear } from './twilight';
 
@@ -9,17 +10,14 @@ export interface CitySeries {
 
 export const HEATMAP_WIDTH = 1200;
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTH_STARTS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-
 const MARGIN = { left: 70, right: 30 };
 const CHART_HEADER = 40;
 const PANEL_TITLE_HEIGHT = 32;
 const HEATMAP_INNER_HEIGHT = 240;
+const MONTH_LABEL_HEIGHT = 22;
 const PANEL_GAP = 22;
-const MONTH_LABEL_HEIGHT = 26;
 const LEGEND_HEIGHT = 80;
-const PANEL_TOTAL = PANEL_TITLE_HEIGHT + HEATMAP_INNER_HEIGHT;
+const PANEL_TOTAL = PANEL_TITLE_HEIGHT + HEATMAP_INNER_HEIGHT + MONTH_LABEL_HEIGHT;
 
 const TEMP_SMOOTHING_SIGMA_DAYS = 1.5;
 const NIGHT_OPACITY = 0.32;
@@ -52,11 +50,7 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
 
   const innerWidth = HEATMAP_WIDTH - MARGIN.left - MARGIN.right;
   const totalHeight =
-    CHART_HEADER +
-    cities.length * PANEL_TOTAL +
-    (cities.length - 1) * PANEL_GAP +
-    MONTH_LABEL_HEIGHT +
-    LEGEND_HEIGHT;
+    CHART_HEADER + cities.length * PANEL_TOTAL + (cities.length - 1) * PANEL_GAP + LEGEND_HEIGHT;
 
   const cellWidth = innerWidth / 365;
   const cellHeight = HEATMAP_INNER_HEIGHT / 24;
@@ -65,6 +59,7 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
     .map((city, panelIdx) => {
       const panelTop = CHART_HEADER + panelIdx * (PANEL_TOTAL + PANEL_GAP) + PANEL_TITLE_HEIGHT;
       const titleY = CHART_HEADER + panelIdx * (PANEL_TOTAL + PANEL_GAP) + 22;
+      const axis: MonthAxis = monthAxis(orientationForLatitude(city.cube.latitude));
 
       const smoothed = smoothAlongDay(city.cube.temperatureMean, TEMP_SMOOTHING_SIGMA_DAYS);
       const twilight = computeTwilightYear(
@@ -73,11 +68,13 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
         city.cube.timezone,
       );
 
-      // Heatmap cells (a tiny overlap +0.5 prevents thin antialiased gaps)
+      // Heatmap cells (a tiny overlap +0.5 prevents thin antialiased gaps).
+      // Rendered column d maps to calendar day (d + dayOffset) mod 365.
       const cells: string[] = [];
       for (let d = 0; d < 365; d++) {
+        const dataDay = (d + axis.dayOffset) % 365;
         for (let h = 0; h < 24; h++) {
-          const color = colorForCelsius(smoothed[d]![h]!);
+          const color = colorForCelsius(smoothed[dataDay]![h]!);
           const x = MARGIN.left + d * cellWidth;
           const y = panelTop + h * cellHeight;
           cells.push(
@@ -89,7 +86,8 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
       // Night overlay
       const nightRects: string[] = [];
       for (let d = 0; d < 365; d++) {
-        const tw = twilight[d]!;
+        const dataDay = (d + axis.dayOffset) % 365;
+        const tw = twilight[dataDay]!;
         const x = MARGIN.left + d * cellWidth;
         const w = cellWidth + 0.5;
         if (tw.alwaysNight) {
@@ -120,13 +118,25 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
         .join('\n      ');
 
       // Subtle vertical month gridlines on top of the heatmap
-      const monthGrid = MONTH_STARTS.map((doy) => {
-        const x = MARGIN.left + doy * cellWidth;
-        return `<line x1="${x.toFixed(2)}" x2="${x.toFixed(2)}" y1="${panelTop}" y2="${panelTop + HEATMAP_INNER_HEIGHT}" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1" />`;
-      }).join('\n      ');
+      const monthGrid = axis.starts
+        .map((doy) => {
+          const x = MARGIN.left + doy * cellWidth;
+          return `<line x1="${x.toFixed(2)}" x2="${x.toFixed(2)}" y1="${panelTop}" y2="${panelTop + HEATMAP_INNER_HEIGHT}" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1" />`;
+        })
+        .join('\n      ');
 
       // Panel border
       const border = `<rect x="${MARGIN.left}" y="${panelTop}" width="${innerWidth}" height="${HEATMAP_INNER_HEIGHT}" fill="none" stroke="#94a3b8" stroke-width="1" />`;
+
+      // Month labels for this panel, centered within each month band.
+      const monthLabelY = panelTop + HEATMAP_INNER_HEIGHT + 16;
+      const monthLabels = axis.starts
+        .map((doy, i) => {
+          const monthCenter = doy + axis.lengths[i]! / 2;
+          const x = MARGIN.left + monthCenter * cellWidth;
+          return `<text x="${x.toFixed(2)}" y="${monthLabelY.toFixed(2)}" font-size="13" fill="#6b7280" text-anchor="middle" font-family="sans-serif">${axis.labels[i]}</text>`;
+        })
+        .join('\n      ');
 
       return `
     <text x="${MARGIN.left}" y="${titleY}" font-size="17" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(city.name)}</text>
@@ -135,17 +145,10 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
       ${nightRects.join('\n      ')}
       ${monthGrid}
       ${border}
-      ${hourTicks}`;
+      ${hourTicks}
+      ${monthLabels}`;
     })
     .join('\n');
-
-  // Month labels at bottom of last panel
-  const lastPanelBottom =
-    CHART_HEADER + cities.length * PANEL_TOTAL + (cities.length - 1) * PANEL_GAP;
-  const monthLabels = MONTH_STARTS.map((doy, i) => {
-    const x = MARGIN.left + (doy + 15) * cellWidth; // center over each month
-    return `<text x="${x.toFixed(2)}" y="${lastPanelBottom + 18}" font-size="13" fill="#6b7280" text-anchor="middle" font-family="sans-serif">${MONTHS[i]}</text>`;
-  }).join('\n    ');
 
   // Legend — 9 band swatches across the bottom
   const legendY = totalHeight - LEGEND_HEIGHT + 26;
@@ -175,7 +178,6 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
   <text x="${MARGIN.left}" y="22" font-size="18" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(title)}</text>
   <text x="${MARGIN.left}" y="38" font-size="11" fill="#6b7280" font-family="sans-serif">${escapeXml(subtitle)}</text>
 ${panels}
-    ${monthLabels}
     ${legend}
 </svg>`;
 }
