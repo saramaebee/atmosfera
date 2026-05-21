@@ -1,6 +1,48 @@
 import { describe, expect, it } from 'bun:test';
 import { aggregateCube, dayOfYearNoLeap, parseLocalTimestamp, percentile } from './aggregate';
 import type { HourlyYearData } from './types';
+import { wetBulbC } from './wetbulb';
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function makeEmptyYear(): HourlyYearData {
+  return {
+    time: [],
+    temperature_2m: [],
+    dew_point_2m: [],
+    relative_humidity_2m: [],
+    precipitation: [],
+    cloud_cover: [],
+  };
+}
+
+interface HourlyConditions {
+  tempC: number;
+  rh: number;
+}
+
+/** Build a synthetic non-leap year (2023) where each month gets the
+ *  conditions returned by `forMonth(monthIndex)`. */
+function buildSyntheticYear(forMonth: (monthIdx: number) => HourlyConditions): HourlyYearData {
+  const year = makeEmptyYear();
+  for (let m = 1; m <= 12; m++) {
+    const { tempC, rh } = forMonth(m - 1);
+    const monthLen = MONTH_LENGTHS[m - 1]!;
+    for (let d = 1; d <= monthLen; d++) {
+      for (let h = 0; h < 24; h++) {
+        year.time.push(
+          `2023-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:00`,
+        );
+        year.temperature_2m.push(tempC);
+        year.dew_point_2m.push(tempC - 5); // not used by these assertions
+        year.relative_humidity_2m.push(rh);
+        year.precipitation.push(0);
+        year.cloud_cover.push(50);
+      }
+    }
+  }
+  return year;
+}
 
 describe('parseLocalTimestamp', () => {
   it('parses Open-Meteo iso8601 (no tz) strings', () => {
@@ -44,6 +86,7 @@ describe('aggregateCube', () => {
       time: [],
       temperature_2m: [],
       dew_point_2m: [],
+      relative_humidity_2m: [],
       precipitation: [],
       cloud_cover: [],
     };
@@ -57,6 +100,7 @@ describe('aggregateCube', () => {
           );
           year.temperature_2m.push(20);
           year.dew_point_2m.push(19); // always muggy
+          year.relative_humidity_2m.push(94); // ~saturated at 20°C / dewpoint 19°C
           year.precipitation.push(0);
           year.cloud_cover.push(50);
         }
@@ -85,6 +129,7 @@ describe('aggregateCube', () => {
       time: [],
       temperature_2m: [],
       dew_point_2m: [],
+      relative_humidity_2m: [],
       precipitation: [],
       cloud_cover: [],
     };
@@ -93,6 +138,7 @@ describe('aggregateCube', () => {
       year.time.push(`2024-02-29T${String(h).padStart(2, '0')}:00`);
       year.temperature_2m.push(100);
       year.dew_point_2m.push(100);
+      year.relative_humidity_2m.push(100);
       year.precipitation.push(0);
       year.cloud_cover.push(0);
     }
@@ -110,5 +156,52 @@ describe('aggregateCube', () => {
     for (let h = 0; h < 24; h++) {
       expect(cube.temperatureMean[0]![h]).toBeNaN();
     }
+  });
+
+  it('wet-bulb stats: detects worst month, peak, and threshold hours', () => {
+    // July: 35°C / 70% RH → WB ≈ 30°C ≈ 86°F (crosses all 3 thresholds).
+    // Rest of year: cool/dry, WB well below 75°F.
+    const julyConditions: HourlyConditions = { tempC: 35, rh: 70 };
+    const otherConditions: HourlyConditions = { tempC: 10, rh: 50 };
+    const year = buildSyntheticYear((m) => (m === 6 ? julyConditions : otherConditions));
+
+    const cube = aggregateCube([year], {
+      latitude: 0,
+      longitude: 0,
+      timezone: 'UTC',
+      startYear: 2023,
+      endYear: 2023,
+    });
+
+    const julyWb = wetBulbC(julyConditions.tempC, julyConditions.rh);
+    const julyHours = 31 * 24;
+
+    expect(cube.wetBulbWorstMonthIndex).toBe(6);
+    expect(cube.wetBulbWorstMonthMean).toBeCloseTo(julyWb, 5);
+    expect(cube.wetBulbAnnualPeakMean).toBeCloseTo(julyWb, 5);
+    expect(cube.wetBulbHoursAbove75F).toBe(julyHours);
+    expect(cube.wetBulbHoursAbove80F).toBe(julyHours);
+    expect(cube.wetBulbHoursAbove85F).toBe(julyHours);
+    // Worst-month mean should equal the WB of that day's mean(s).
+    const julyDoy0 = 31 + 28 + 31 + 30 + 31 + 30; // June 30 → July 1 is doy 181
+    expect(cube.wetBulbMean[julyDoy0]![12]).toBeCloseTo(julyWb, 5);
+  });
+
+  it('wet-bulb stays low for dry heat (Phoenix-like)', () => {
+    // 40°C / 10% RH year-round → WB ≈ 17°C ≈ 63°F: well under 75°F.
+    const year = buildSyntheticYear(() => ({ tempC: 40, rh: 10 }));
+
+    const cube = aggregateCube([year], {
+      latitude: 33.45,
+      longitude: -112.07,
+      timezone: 'UTC',
+      startYear: 2023,
+      endYear: 2023,
+    });
+
+    expect(cube.wetBulbHoursAbove75F).toBe(0);
+    expect(cube.wetBulbHoursAbove80F).toBe(0);
+    expect(cube.wetBulbHoursAbove85F).toBe(0);
+    expect(cube.wetBulbAnnualPeakMean).toBeLessThan(20);
   });
 });

@@ -16,6 +16,13 @@ function cubeAt(latitude: number, longitude: number): ClimateCube {
     cloudcoverMean: [],
     muggyProbability: [],
     wetDayProbability: [],
+    wetBulbMean: [],
+    wetBulbAnnualPeakMean: 0,
+    wetBulbHoursAbove75F: 0,
+    wetBulbHoursAbove80F: 0,
+    wetBulbHoursAbove85F: 0,
+    wetBulbWorstMonthIndex: 0,
+    wetBulbWorstMonthMean: 0,
   };
 }
 

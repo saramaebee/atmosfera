@@ -6,6 +6,7 @@ import {
   type ClimateCube,
   type HourlyYearData,
 } from './types';
+import { WB_75F_C, WB_80F_C, WB_85F_C, wetBulbC } from './wetbulb';
 
 const DAYS_BEFORE_MONTH = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
@@ -92,12 +93,27 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
   const tempSamples = makeMatrixOfArrays();
   const dewSamples = makeMatrixOfArrays();
   const cloudSamples = makeMatrixOfArrays();
+  const wbSamples = makeMatrixOfArrays();
 
   const wetDayCounts = new Array<number>(365).fill(0);
   const observedYears = new Array<number>(365).fill(0);
 
+  // Per-month sum/count for finding the worst (highest mean WB) month.
+  const wbMonthSum = new Array<number>(12).fill(0);
+  const wbMonthCount = new Array<number>(12).fill(0);
+
+  // Hours-above-threshold counts across all years (divided by year count
+  // at the end → per-year averages).
+  let wbHoursAbove75 = 0;
+  let wbHoursAbove80 = 0;
+  let wbHoursAbove85 = 0;
+
+  // Per-year max hourly WB (averaged across years at the end).
+  const wbAnnualPeaks: number[] = [];
+
   for (const yearData of years) {
     const precipByDay = new Map<number, number>();
+    let yearMaxWb = Number.NEGATIVE_INFINITY;
 
     for (let i = 0; i < yearData.time.length; i++) {
       const ts = yearData.time[i]!;
@@ -107,6 +123,7 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
 
       const t = yearData.temperature_2m[i];
       const dp = yearData.dew_point_2m[i];
+      const rh = yearData.relative_humidity_2m[i];
       const c = yearData.cloud_cover[i];
       const p = yearData.precipitation[i];
 
@@ -114,9 +131,22 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
       if (dp !== null && dp !== undefined) dewSamples[doy]![hour]!.push(dp);
       if (c !== null && c !== undefined) cloudSamples[doy]![hour]!.push(c);
 
+      if (t !== null && t !== undefined && rh !== null && rh !== undefined) {
+        const wb = wetBulbC(t, rh);
+        wbSamples[doy]![hour]!.push(wb);
+        wbMonthSum[month - 1] = (wbMonthSum[month - 1] ?? 0) + wb;
+        wbMonthCount[month - 1] = (wbMonthCount[month - 1] ?? 0) + 1;
+        if (wb >= WB_75F_C) wbHoursAbove75 += 1;
+        if (wb >= WB_80F_C) wbHoursAbove80 += 1;
+        if (wb >= WB_85F_C) wbHoursAbove85 += 1;
+        if (wb > yearMaxWb) yearMaxWb = wb;
+      }
+
       const precipVal = p ?? 0;
       precipByDay.set(doy, (precipByDay.get(doy) ?? 0) + precipVal);
     }
+
+    if (yearMaxWb > Number.NEGATIVE_INFINITY) wbAnnualPeaks.push(yearMaxWb);
 
     for (const [doy, total] of precipByDay) {
       observedYears[doy] = (observedYears[doy] ?? 0) + 1;
@@ -149,6 +179,27 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
     wetDayProbability[d] = observed > 0 ? (wetDayCounts[d] ?? 0) / observed : 0;
   }
 
+  const wetBulbMean = reduceMatrix(wbSamples, mean);
+
+  const yearCount = Math.max(years.length, 1);
+  const wetBulbAnnualPeakMean =
+    wbAnnualPeaks.length > 0 ? mean(wbAnnualPeaks) : Number.NaN;
+
+  let wetBulbWorstMonthIndex = 0;
+  let wetBulbWorstMonthMean = Number.NEGATIVE_INFINITY;
+  for (let m = 0; m < 12; m++) {
+    const c = wbMonthCount[m] ?? 0;
+    if (c === 0) continue;
+    const monthMean = (wbMonthSum[m] ?? 0) / c;
+    if (monthMean > wetBulbWorstMonthMean) {
+      wetBulbWorstMonthMean = monthMean;
+      wetBulbWorstMonthIndex = m;
+    }
+  }
+  if (wetBulbWorstMonthMean === Number.NEGATIVE_INFINITY) {
+    wetBulbWorstMonthMean = Number.NaN;
+  }
+
   return {
     latitude: opts.latitude,
     longitude: opts.longitude,
@@ -162,5 +213,12 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
     cloudcoverMean,
     muggyProbability: gaussianSmooth1d(muggyProbability, MUGGY_SIGMA_DAYS),
     wetDayProbability: gaussianSmooth1d(wetDayProbability, WETDAY_SIGMA_DAYS),
+    wetBulbMean,
+    wetBulbAnnualPeakMean,
+    wetBulbHoursAbove75F: wbHoursAbove75 / yearCount,
+    wetBulbHoursAbove80F: wbHoursAbove80 / yearCount,
+    wetBulbHoursAbove85F: wbHoursAbove85 / yearCount,
+    wetBulbWorstMonthIndex,
+    wetBulbWorstMonthMean,
   };
 }

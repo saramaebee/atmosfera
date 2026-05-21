@@ -17,6 +17,13 @@ function makeSyntheticCube(meanTempC: number, lat: number, lon: number): Climate
     cloudcoverMean: Array.from({ length: 365 }, () => Array(24).fill(50)),
     muggyProbability: Array(365).fill(0),
     wetDayProbability: Array(365).fill(0),
+    wetBulbMean: Array.from({ length: 365 }, () => Array(24).fill(meanTempC - 3)),
+    wetBulbAnnualPeakMean: meanTempC,
+    wetBulbHoursAbove75F: 0,
+    wetBulbHoursAbove80F: 0,
+    wetBulbHoursAbove85F: 0,
+    wetBulbWorstMonthIndex: 6,
+    wetBulbWorstMonthMean: meanTempC - 3,
   };
 }
 
