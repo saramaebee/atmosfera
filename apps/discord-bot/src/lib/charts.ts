@@ -45,7 +45,7 @@ function buildCityWetBulbBlock(cube: ClimateCube): string {
     `**Typical summer afternoon:** ${formatWetBulbWithLabel(summerAfternoon)}`,
     `**Annual peak:** ${formatWetBulbWithLabel(cube.wetBulbAnnualPeakMean)}`,
     '**Hours/yr above WB:**',
-    `• 75°F (humid): ${Math.round(cube.wetBulbHoursAbove75F)} h`,
+    `• 75°F (muggy): ${Math.round(cube.wetBulbHoursAbove75F)} h`,
     `• 80°F (high heat stress): ${Math.round(cube.wetBulbHoursAbove80F)} h`,
     `• 85°F (dangerous): ${Math.round(cube.wetBulbHoursAbove85F)} h`,
     `**Worst month:** ${monthName(cube.wetBulbWorstMonthIndex)} — ${formatWetBulbDual(cube.wetBulbWorstMonthMean)}`,
