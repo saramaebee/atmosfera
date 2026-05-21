@@ -13,7 +13,11 @@ import {
   getContrastRoast,
   getRoast,
 } from '@atmosfera/city-roast';
-import type { SlashCommandBuilder, SlashCommandOptionsOnlyBuilder } from 'discord.js';
+import type {
+  SlashCommandBuilder,
+  SlashCommandOptionsOnlyBuilder,
+  SlashCommandSubcommandBuilder,
+} from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 
 export interface ParsedRoastOptions {
@@ -24,10 +28,10 @@ export interface ParsedRoastOptions {
   requested: boolean;
 }
 
-/** Attach tone/culture/length options to a SlashCommandBuilder chain. */
-export function addRoastOptions<T extends SlashCommandBuilder | SlashCommandOptionsOnlyBuilder>(
-  builder: T,
-): T {
+/** Attach tone/culture/length options to a slash command builder or subcommand. */
+export function addRoastOptions<
+  T extends SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandBuilder,
+>(builder: T): T {
   return builder
     .addStringOption((opt) =>
       opt
