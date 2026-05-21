@@ -18,7 +18,9 @@
     "@atmosfera/config": "workspace:*",
     "@atmosfera/db": "workspace:*",
     "@atmosfera/geocode": "workspace:*",
-    "@atmosfera/roast": "workspace:*"
+    "@atmosfera/gemini": "workspace:*",
+    "@atmosfera/city-roast": "workspace:*",
+    "@atmosfera/user-roast": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

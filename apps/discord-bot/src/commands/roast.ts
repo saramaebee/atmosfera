@@ -1,6 +1,6 @@
 import { loadClimateCube } from '@atmosfera/climate';
 import { getEnv } from '@atmosfera/config';
-import { RoastApiKeyMissingError, getRoast } from '@atmosfera/roast';
+import { RoastApiKeyMissingError, getRoast } from '@atmosfera/city-roast';
 import { Command } from '@sapphire/framework';
 import { EmbedBuilder, MessageFlags } from 'discord.js';
 import { cityDisplayName, resolveCitiesOrPrompt } from '../lib/cities';
