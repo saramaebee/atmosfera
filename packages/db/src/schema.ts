@@ -1,4 +1,12 @@
-import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Canonical resolved cities. Keyed by Open-Meteo's geocoder id when available
@@ -212,6 +220,61 @@ export const pinnedRoastVotes = sqliteTable(
     index('idx_pinned_roast_votes_invocation').on(t.invocationId),
   ],
 );
+
+// ─── permissions + audit ───────────────────────────────────────────────────
+
+/**
+ * Per-guild RBAC override rules for slash commands. Each row is an explicit
+ * allow/deny tied to a role or user principal; rules in this table layer on
+ * top of the command's compiled-in baseline scope. Resolution order is
+ * documented in apps/discord-bot/src/preconditions/AtmosferaScope.ts.
+ */
+export const commandPermissionRules = sqliteTable(
+  'command_permission_rules',
+  {
+    guildId: text('guild_id').notNull(),
+    commandName: text('command_name').notNull(),
+    principalType: text('principal_type').notNull().$type<'role' | 'user'>(),
+    principalId: text('principal_id').notNull(),
+    effect: text('effect').notNull().$type<'allow' | 'deny'>(),
+    grantedBy: text('granted_by').notNull(),
+    grantedAt: integer('granted_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.guildId, t.commandName, t.principalType, t.principalId] }),
+    index('idx_cmd_perm_rules_guild_cmd').on(t.guildId, t.commandName),
+  ],
+);
+
+/**
+ * Generic event log for admin-facing mutations. Callers anywhere in the bot
+ * use recordAuditEvent(). eventType follows a `domain.subject.action` convention.
+ * Indefinite retention by design.
+ */
+export const auditLog = sqliteTable(
+  'audit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    guildId: text('guild_id'),
+    actorId: text('actor_id').notNull(),
+    eventType: text('event_type').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    metadata: text('metadata'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    index('idx_audit_log_guild_time').on(t.guildId, t.createdAt),
+    index('idx_audit_log_event_time').on(t.eventType, t.createdAt),
+  ],
+);
+
+export type CommandPermissionRule = typeof commandPermissionRules.$inferSelect;
+export type NewCommandPermissionRule = typeof commandPermissionRules.$inferInsert;
+export type AuditLogRow = typeof auditLog.$inferSelect;
+export type NewAuditLogRow = typeof auditLog.$inferInsert;
+export type PrincipalType = 'role' | 'user';
+export type PermissionEffect = 'allow' | 'deny';
 
 export type GuildConfig = typeof guildConfig.$inferSelect;
 export type NewGuildConfig = typeof guildConfig.$inferInsert;
