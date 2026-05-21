@@ -10,6 +10,17 @@ const intFromEnv = (def: number) =>
       return Number.isFinite(n) ? n : def;
     });
 
+const csvSnowflakes = z
+  .string()
+  .optional()
+  .transform((v): string[] => {
+    if (!v) return [];
+    return v
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => /^\d{17,20}$/.test(s));
+  });
+
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1).optional(),
   DISCORD_CLIENT_ID: z.string().min(1).optional(),
@@ -19,6 +30,14 @@ const envSchema = z.object({
     .string()
     .default('atmosfera/0.1 (https://github.com/saratonin/atmosfera)'),
   GEMINI_API_KEY: z.string().min(1).optional(),
+
+  /**
+   * Discord user IDs that bypass the user-scope check on commands tagged
+   * with `ownerOverride: true`. Comma-separated; non-snowflake values are
+   * dropped silently. Owners never bypass `requiredClientPermissions` or
+   * `protected` rules.
+   */
+  DISCORD_OWNER_IDS: csvSnowflakes,
 
   // user-roast pipeline tuning
   ROAST_MAX_TOOL_ITERATIONS: intFromEnv(3),
