@@ -32,6 +32,13 @@ function makeCube(opts: { hotPeak: number; hotDoy: number; meanT?: number }): Cl
       { length: 365 },
       (_, d) => 0.4 * Math.exp(-((d - 180) ** 2) / 4000),
     ),
+    wetBulbMean: Array.from({ length: 365 }, () => new Array(24).fill(15)),
+    wetBulbAnnualPeakMean: 22,
+    wetBulbHoursAbove75F: 0,
+    wetBulbHoursAbove80F: 0,
+    wetBulbHoursAbove85F: 0,
+    wetBulbWorstMonthIndex: 6,
+    wetBulbWorstMonthMean: 18,
   };
 }
 

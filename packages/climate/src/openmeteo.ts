@@ -13,6 +13,7 @@ const historicalResponseSchema = z.object({
     time: z.array(z.string()),
     temperature_2m: nullableNumberArray,
     dew_point_2m: nullableNumberArray,
+    relative_humidity_2m: nullableNumberArray,
     precipitation: nullableNumberArray,
     cloud_cover: nullableNumberArray,
   }),
@@ -25,7 +26,7 @@ export function cacheKey(lat: number, lon: number): string {
 }
 
 export function rawCachePath(lat: number, lon: number, year: number): string {
-  return `.cache/raw/open-meteo/${cacheKey(lat, lon)}/${year}.json`;
+  return `.cache/raw/open-meteo-v2/${cacheKey(lat, lon)}/${year}.json`;
 }
 
 export async function fetchHistoricalYear(
@@ -46,7 +47,10 @@ export async function fetchHistoricalYear(
   url.searchParams.set('longitude', lon.toString());
   url.searchParams.set('start_date', `${year}-01-01`);
   url.searchParams.set('end_date', `${year}-12-31`);
-  url.searchParams.set('hourly', 'temperature_2m,dew_point_2m,precipitation,cloud_cover');
+  url.searchParams.set(
+    'hourly',
+    'temperature_2m,dew_point_2m,relative_humidity_2m,precipitation,cloud_cover',
+  );
   url.searchParams.set('timezone', 'auto');
 
   const res = await fetch(url);

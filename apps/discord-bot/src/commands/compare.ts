@@ -38,6 +38,14 @@ export class CompareCommand extends Command {
                   { name: 'Wet-day probability', value: 'wetday' },
                   { name: 'All three', value: 'all' },
                 ),
+            )
+            .addBooleanOption((opt) =>
+              opt
+                .setName('wetbulb')
+                .setDescription(
+                  'Add wet-bulb heat-stress summary per city (pairs best with chart:muggy)',
+                )
+                .setRequired(false),
             ),
         ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
@@ -49,6 +57,7 @@ export class CompareCommand extends Command {
     const queryB = interaction.options.getString('city_b', true);
     const chart = (interaction.options.getString('chart') ?? 'heatmap') as CompareChartChoice;
     const roast = parseRoastOptions(interaction);
+    const wetBulb = interaction.options.getBoolean('wetbulb') ?? false;
 
     const cities = await resolveCitiesOrPrompt(interaction, 'compare', [queryA, queryB], chart);
     if (!cities) return;
@@ -61,6 +70,7 @@ export class CompareCommand extends Command {
       cities,
       chart,
       roast: roastResult.text,
+      wetBulb,
     });
 
     await interaction.editReply(rendered);

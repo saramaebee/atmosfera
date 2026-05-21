@@ -16,3 +16,13 @@ export {
   MUGGY_SIGMA_DAYS,
   WETDAY_SIGMA_DAYS,
 } from './smoothing';
+export {
+  wetBulbC,
+  wetBulbLabel,
+  cToF,
+  fToC,
+  WB_75F_C,
+  WB_80F_C,
+  WB_85F_C,
+  type WetBulbLabel,
+} from './wetbulb';
