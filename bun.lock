@@ -5,11 +5,13 @@
       "name": "atmosfera",
       "dependencies": {
         "@atmosfera/charts": "workspace:*",
+        "@atmosfera/city-roast": "workspace:*",
         "@atmosfera/climate": "workspace:*",
         "@atmosfera/config": "workspace:*",
         "@atmosfera/db": "workspace:*",
+        "@atmosfera/gemini": "workspace:*",
         "@atmosfera/geocode": "workspace:*",
-        "@atmosfera/roast": "workspace:*",
+        "@atmosfera/user-roast": "workspace:*",
       },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
@@ -27,11 +29,13 @@
       "version": "0.0.0",
       "dependencies": {
         "@atmosfera/charts": "workspace:*",
+        "@atmosfera/city-roast": "workspace:*",
         "@atmosfera/climate": "workspace:*",
         "@atmosfera/config": "workspace:*",
         "@atmosfera/db": "workspace:*",
+        "@atmosfera/gemini": "workspace:*",
         "@atmosfera/geocode": "workspace:*",
-        "@atmosfera/roast": "workspace:*",
+        "@atmosfera/user-roast": "workspace:*",
         "@sapphire/framework": "^5.5.0",
         "discord.js": "^14.26.4",
       },
@@ -46,6 +50,15 @@
         "react": "^18.3.1",
         "satori": "^0.26.0",
         "suncalc": "^1.9.0",
+      },
+    },
+    "packages/city-roast": {
+      "name": "@atmosfera/city-roast",
+      "version": "0.0.0",
+      "dependencies": {
+        "@atmosfera/climate": "workspace:*",
+        "@atmosfera/db": "workspace:*",
+        "@atmosfera/gemini": "workspace:*",
       },
     },
     "packages/climate": {
@@ -72,6 +85,14 @@
         "drizzle-kit": "^0.31.10",
       },
     },
+    "packages/gemini": {
+      "name": "@atmosfera/gemini",
+      "version": "0.0.0",
+      "dependencies": {
+        "@google/genai": "^1.0.0",
+        "zod": "^3.23.8",
+      },
+    },
     "packages/geocode": {
       "name": "@atmosfera/geocode",
       "version": "0.0.0",
@@ -80,18 +101,23 @@
         "zod": "^3.23.8",
       },
     },
-    "packages/roast": {
-      "name": "@atmosfera/roast",
+    "packages/user-roast": {
+      "name": "@atmosfera/user-roast",
       "version": "0.0.0",
       "dependencies": {
-        "@atmosfera/climate": "workspace:*",
+        "@atmosfera/config": "workspace:*",
         "@atmosfera/db": "workspace:*",
+        "@atmosfera/gemini": "workspace:*",
         "@google/genai": "^1.0.0",
+        "discord.js": "^14.26.4",
+        "zod": "^3.23.8",
       },
     },
   },
   "packages": {
     "@atmosfera/charts": ["@atmosfera/charts@workspace:packages/charts"],
+
+    "@atmosfera/city-roast": ["@atmosfera/city-roast@workspace:packages/city-roast"],
 
     "@atmosfera/climate": ["@atmosfera/climate@workspace:packages/climate"],
 
@@ -101,9 +127,11 @@
 
     "@atmosfera/discord-bot": ["@atmosfera/discord-bot@workspace:apps/discord-bot"],
 
+    "@atmosfera/gemini": ["@atmosfera/gemini@workspace:packages/gemini"],
+
     "@atmosfera/geocode": ["@atmosfera/geocode@workspace:packages/geocode"],
 
-    "@atmosfera/roast": ["@atmosfera/roast@workspace:packages/roast"],
+    "@atmosfera/user-roast": ["@atmosfera/user-roast@workspace:packages/user-roast"],
 
     "@biomejs/biome": ["@biomejs/biome@1.9.4", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "1.9.4", "@biomejs/cli-darwin-x64": "1.9.4", "@biomejs/cli-linux-arm64": "1.9.4", "@biomejs/cli-linux-arm64-musl": "1.9.4", "@biomejs/cli-linux-x64": "1.9.4", "@biomejs/cli-linux-x64-musl": "1.9.4", "@biomejs/cli-win32-arm64": "1.9.4", "@biomejs/cli-win32-x64": "1.9.4" }, "bin": { "biome": "bin/biome" } }, "sha512-1rkd7G70+o9KkTn5KLmDYXihGoTaIGO9PIIN2ZB7UJxFrWw04CZHPYiMRjYsaDvVV7hP1dYNRLxSANLaBFGpog=="],
 

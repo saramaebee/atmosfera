@@ -12,7 +12,7 @@ import {
   type Tone,
   getContrastRoast,
   getRoast,
-} from '@atmosfera/roast';
+} from '@atmosfera/city-roast';
 import type { SlashCommandBuilder, SlashCommandOptionsOnlyBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 

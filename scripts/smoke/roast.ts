@@ -24,7 +24,7 @@ import {
   TONES,
   getContrastRoast,
   getRoast,
-} from '@atmosfera/roast';
+} from '@atmosfera/city-roast';
 
 const CITIES = ['Buenos Aires', 'Reykjavik'];
 

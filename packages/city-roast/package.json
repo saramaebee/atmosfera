@@ -1,5 +1,5 @@
 {
-  "name": "@atmosfera/roast",
+  "name": "@atmosfera/city-roast",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,6 @@
   "dependencies": {
     "@atmosfera/climate": "workspace:*",
     "@atmosfera/db": "workspace:*",
-    "@google/genai": "^1.0.0"
+    "@atmosfera/gemini": "workspace:*"
   }
 }
