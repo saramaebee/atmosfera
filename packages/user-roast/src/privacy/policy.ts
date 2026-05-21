@@ -1,39 +1,99 @@
 /**
- * Single source of truth for user-roast's privacy disclosure. Surfaced in-bot
+ * Single source of truth for atmosfera's privacy disclosure. Surfaced in-bot
  * via /privacy (apps/discord-bot/src/commands/privacy.ts) and mirrored in
  * PRIVACY.md at the repo root for GitHub viewers.
  *
- * If you add a column to packages/db/src/schema.ts (user-roast section), update
- * PRIVACY_POLICY.stored. Bump PRIVACY_POLICY_VERSION on any change. PRIVACY.md
- * must be kept in sync manually.
+ * Three top-level shapes:
+ *   - PRIVACY_SUMMARY  — short version, shown by bare /privacy
+ *   - PRIVACY_DATA     — message-tracking detail, shown by /privacy data
+ *   - PRIVACY_AUDIT    — audit-log explainer, shown by /privacy audit-log
+ *
+ * If you change what's stored, sent, or logged, update the relevant constant
+ * and bump PRIVACY_POLICY_VERSION. Keep PRIVACY.md in sync manually.
  */
 
-export const PRIVACY_POLICY_VERSION = '2026-05-21.4';
+export const PRIVACY_POLICY_VERSION = '2026-05-21.5';
 
-export const PRIVACY_POLICY = {
-  stored: [
-    'Per-hour aggregated message counts per (user, channel) — counts only, not content. 30-day retention.',
-    'Per-message metadata (channel, timestamp, length bucket, has-attachment flag, is-reply flag, mention count) — 30-day retention.',
-    'Reply and @mention edges (who interacted with whom, when, in which channel) — 30-day retention.',
-    'Roast history metadata: angle labels, partner IDs name-dropped, search keywords used — 30-day retention. Used to make repeat roasts feel less repetitive.',
-    'Pinned roasts: when the target of a roast explicitly clicks 📌 Pin on a public roast, we store the roast text along with the channel/message IDs that contained it, plus the upvote ledger (which voters approved which pinned roast). Retained until the owner deletes via `/pinned-roast delete`; not subject to the 30-day purge.',
-    'Per-guild config: indexing on/off, command toggles, brutal-mode allowed.',
-    'Per-user brutal-mode opt-in records.',
-    'Per-user roast participation opt-out records (with 30-day re-entry lock timestamps).',
+export const PRIVACY_SUMMARY = {
+  thirdParties: [
+    'Open-Meteo — receives city coordinates / timezone for climate fetches. No user data.',
+    'Nominatim (geocoding fallback) — receives city query strings. No user data.',
+    "Google Gemini — receives climate-cube summaries for city snark, and anonymized message-pattern metadata + the target's display name for `/roast`. **Never raw message content.** Gemini inference-only; no data is used to train Google's models.",
+  ],
+  retained: [
+    'Anonymized message metadata (timestamps, length buckets, attachment flags, mention counts). No content. 30-day rolling.',
+    'Reply / mention edges between members. 30-day rolling.',
+    'Generated roast text + invocation metadata. Indefinite while pinned, 30-day otherwise.',
+    'Pinned roasts the target explicitly saved, plus upvotes. Indefinite (user-controlled).',
+    'Per-guild config flags, per-user opt-in / opt-out states.',
+    'Command permission rules and the audit log (admin actions).',
+    'See `/privacy data` for the message-metadata breakdown and `/privacy audit-log` for what we log about admin actions.',
   ],
   neverStored: [
-    'Message content. Ever. Not in the database, not in logs.',
-    'Roast text or message IDs for roasts that were not explicitly pinned by their target.',
+    'Raw message content. Ever — not in the database, not in logs.',
     'Direct messages.',
+    "Message edits or deletions (we don't subscribe to those events).",
   ],
-  thirdParties: [
-    "Google Gemini Flash 2.5 — receives behavioral fingerprints and short live-fetched message samples during a roast, scoped to that single roast. We do not control Gemini's retention; see Google's policy. Server-side safety filter is disabled; safety enforcement happens in-bot.",
+  commitments: [
+    'Data is used solely to operate, debug, and improve atmosfera. Never sold or shared beyond the listed third-party pipeline.',
+    'Never used to train any models. Gemini calls are inference-only.',
+    'User controls: `/roast-user-config participation enable:false` to opt out of being roasted; `/pinned-roast delete` to remove individual pins.',
+    'Data minimization: only the message stats listed in `/privacy data` are extracted. Full text is read in-memory and immediately discarded.',
   ],
-  controls: [
-    '`/roast-setup` — admin opt-in for the entire guild. User-roast is inert until run.',
-    '`/roast-user-config brutal` — per-user consent for brutal tone (and the target must opt in to be roasted in brutal mode).',
-    '`/roast-user-config participation` — per-user opt-out of roasting entirely. Symmetric: opted-out users can\'t roast others either. 30-day lock-in after re-opting in.',
-    '`/roast-config` — admin toggles for slash/message/brutal-allowed.',
-    '`/privacy` — view this policy.',
+} as const;
+
+export const PRIVACY_DATA = {
+  extracted: [
+    'Message length, bucketed (character count → small/medium/large).',
+    'Mention count, plus mentioned user IDs (no names or display strings).',
+    'Attachment flag (boolean) + count.',
+    'Reply target user ID, if the message is a reply.',
+    'Channel ID + timestamp.',
+    'Bot / system-message flag (used to filter, never stored).',
   ],
+  readNotStored: [
+    'Full message text — used in-memory only to derive the above stats, then discarded.',
+    'Embed contents and message components.',
+    "Edits or deletions to existing messages (we don't subscribe to those events).",
+  ],
+  retention: [
+    'Per-message metadata, per-channel hourly counts, reply/mention edges: **30 days rolling**.',
+    'Roast invocation metadata: 30 days, unless the roast was pinned (then indefinite).',
+    'Pinned roasts, opt-in/opt-out states, guild config: indefinite (under user control).',
+  ],
+} as const;
+
+export const PRIVACY_AUDIT = {
+  whyLogged: [
+    'Accountability for shared-server admin actions: who toggled what, when.',
+    'Helps a server admin debug "wait, who turned that off?" without losing context.',
+  ],
+  whatLogged: [
+    'Actor user ID (who took the action).',
+    'Event type (e.g. `permission.grant`, `roast.indexing.toggle`, `roast.config.update`).',
+    'Subject (the command or guild config the action affected).',
+    'Per-event metadata — for permission rules, the principal (role/user ID) and before/after effect; for config toggles, the before/after values.',
+    'Timestamp.',
+  ],
+  notLogged: [
+    "Command content / arguments beyond what's named above.",
+    "Regular user activity — that's covered by `/privacy data`, not the audit log.",
+  ],
+  access: [
+    'Server admins (`Manage Server`) via `/permissions audit`.',
+    'Retention: **indefinite**. The audit log is an administrative record.',
+  ],
+} as const;
+
+/**
+ * Legacy alias for compatibility — points at the new summary shape. Prefer
+ * importing PRIVACY_SUMMARY / PRIVACY_DATA / PRIVACY_AUDIT directly.
+ *
+ * @deprecated use PRIVACY_SUMMARY instead.
+ */
+export const PRIVACY_POLICY = {
+  stored: PRIVACY_SUMMARY.retained,
+  neverStored: PRIVACY_SUMMARY.neverStored,
+  thirdParties: PRIVACY_SUMMARY.thirdParties,
+  controls: PRIVACY_SUMMARY.commitments,
 } as const;

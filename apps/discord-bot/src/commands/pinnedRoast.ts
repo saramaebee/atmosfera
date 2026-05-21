@@ -9,21 +9,33 @@ import {
 import { Command } from '@sapphire/framework';
 import { EmbedBuilder } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
 
 const PREVIEW_CHARS = 120;
 
+const SCOPE = { baseline: 'everyone', protected: true } as const;
+registerScope('pinned-roast', SCOPE);
+
 export class PinnedRoastCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: 'pinned-roast' });
+    super(context, {
+      ...options,
+      name: 'pinned-roast',
+      requiredClientPermissions: ['SendMessages', 'EmbedLinks'],
+      preconditions: ['AtmosferaScope'],
+    });
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        builder
-          .setName('pinned-roast')
-          .setDescription('Look up roasts you have pinned.')
-          .setDMPermission(false)
+        applyScopeToBuilder(
+          builder
+            .setName('pinned-roast')
+            .setDescription('Look up roasts you have pinned.')
+            .setDMPermission(false),
+          SCOPE,
+        )
           .addSubcommand((sub) =>
             sub.setName('list').setDescription('Show your pinned roasts, ranked by upvotes.'),
           )
@@ -79,12 +91,16 @@ export class PinnedRoastCommand extends Command {
         const rows = listPinnedRoastsForUser(guildId, userId);
         if (rows.length === 0) {
           await interaction.reply({
-            content: "You haven't pinned any roasts yet. Click 📌 on a roast you received to pin it.",
+            content:
+              "You haven't pinned any roasts yet. Click 📌 on a roast you received to pin it.",
             ephemeral: true,
           });
           return;
         }
-        await interaction.reply({ embeds: [renderList('Your pinned roasts', rows)], ephemeral: true });
+        await interaction.reply({
+          embeds: [renderList('Your pinned roasts', rows)],
+          ephemeral: true,
+        });
         return;
       }
 
@@ -92,7 +108,10 @@ export class PinnedRoastCommand extends Command {
         const id = interaction.options.getString('id');
         const keyword = interaction.options.getString('keyword');
         if (!id && !keyword) {
-          await interaction.reply({ content: 'Provide either `id` or `keyword`.', ephemeral: true });
+          await interaction.reply({
+            content: 'Provide either `id` or `keyword`.',
+            ephemeral: true,
+          });
           return;
         }
 
