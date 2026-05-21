@@ -126,6 +126,8 @@ export interface ToolLoopParams {
   safetySettings?: SafetySetting[];
   /** Applied to the final response's safetyRatings — throws BlockedBySafetyError if exceeded. */
   safetyPolicy?: SafetyPolicy;
+  /** Gemini 2.5 burns output tokens on thinking by default. 0 disables. */
+  thinkingBudget?: number;
 }
 
 export interface ToolLoopResult {
@@ -165,6 +167,7 @@ export async function runToolLoop({
   temperature = 0.8,
   safetySettings,
   safetyPolicy,
+  thinkingBudget,
 }: ToolLoopParams): Promise<ToolLoopResult> {
   const toolMap = new Map(tools.map((t) => [t.name, t]));
   const declarations = tools.map((t) => t.declaration);
@@ -181,6 +184,7 @@ export async function runToolLoop({
         temperature,
         tools: [{ functionDeclarations: declarations }],
         ...(safetySettings ? { safetySettings } : {}),
+        ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
       },
     });
 
@@ -247,6 +251,7 @@ export async function runToolLoop({
       systemInstruction,
       temperature,
       ...(safetySettings ? { safetySettings } : {}),
+      ...(thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget } } : {}),
     },
   });
 

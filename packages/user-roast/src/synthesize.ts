@@ -130,6 +130,7 @@ Tool budget is bounded. Pick 1-3 calls that maximize roast material, then produc
     temperature: tone === 'brutal' ? 1.0 : 0.95,
     safetySettings: SAFETY_OFF,
     safetyPolicy: policyFor(tone),
+    thinkingBudget: 0,
   });
 
   const citedIds = new Set<Snowflake>();
