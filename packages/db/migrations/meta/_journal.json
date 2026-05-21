@@ -22,6 +22,13 @@
       "when": 1779382533346,
       "tag": "0002_pinned_roasts_fts5",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779393527382,
+      "tag": "0003_command_perms_audit",
+      "breakpoints": true
     }
   ]
 }
