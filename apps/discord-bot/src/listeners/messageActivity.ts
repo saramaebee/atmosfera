@@ -1,11 +1,11 @@
-import { Listener } from '@sapphire/framework';
-import { Events, type Message, type User } from 'discord.js';
 import {
+  type InteractionEdge,
   getGuildConfig,
   recordActivity,
   recordInteractions,
-  type InteractionEdge,
 } from '@atmosfera/user-roast';
+import { Listener } from '@sapphire/framework';
+import { Events, type Message, type User } from 'discord.js';
 
 /**
  * Extract metadata-only stats from a Discord message. The full text is read

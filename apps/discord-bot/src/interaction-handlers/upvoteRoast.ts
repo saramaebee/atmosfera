@@ -1,19 +1,15 @@
+import { upvotePinnedRoast } from '@atmosfera/user-roast';
+import { InteractionHandler, InteractionHandlerTypes, type Option } from '@sapphire/framework';
 import {
-  InteractionHandler,
-  InteractionHandlerTypes,
-  type Option,
-} from '@sapphire/framework';
-import {
+  type ActionRow,
   ActionRowBuilder,
   ButtonBuilder,
+  type ButtonInteraction,
   ButtonStyle,
   ComponentType,
-  type ActionRow,
-  type ButtonInteraction,
   type MessageActionRowComponent,
   type TopLevelComponent,
 } from 'discord.js';
-import { upvotePinnedRoast } from '@atmosfera/user-roast';
 
 const PREFIX = 'roast:upvote:';
 

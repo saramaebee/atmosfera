@@ -2,11 +2,11 @@ import type { RoastOutput } from '@atmosfera/user-roast';
 import {
   ActionRowBuilder,
   ButtonBuilder,
+  type ButtonInteraction,
   ButtonStyle,
+  type ChatInputCommandInteraction,
   ComponentType,
   EmbedBuilder,
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
   type Message,
 } from 'discord.js';
 
@@ -78,8 +78,7 @@ export async function sendUserRoastPreview(params: PreviewParams): Promise<void>
   const collector = previewMessage.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: PREVIEW_TIMEOUT_MS,
-    filter: (i: ButtonInteraction) =>
-      i.user.id === invokerId && i.customId.endsWith(invocationId),
+    filter: (i: ButtonInteraction) => i.user.id === invokerId && i.customId.endsWith(invocationId),
   });
 
   collector.on('collect', async (btn) => {
@@ -105,10 +104,10 @@ export async function sendUserRoastPreview(params: PreviewParams): Promise<void>
 
   collector.on('end', async (_collected, reason) => {
     if (reason === 'time') {
-      const timedOutEmbed = EmbedBuilder.from(embed.toJSON()).setFooter({ text: 'Preview timed out.' });
-      await interaction
-        .editReply({ embeds: [timedOutEmbed], components: [] })
-        .catch(() => {});
+      const timedOutEmbed = EmbedBuilder.from(embed.toJSON()).setFooter({
+        text: 'Preview timed out.',
+      });
+      await interaction.editReply({ embeds: [timedOutEmbed], components: [] }).catch(() => {});
     }
   });
 }

@@ -19,13 +19,9 @@ export function purgeOldRows(now: number = Date.now()): PurgeStats {
   const interactionsCutoff = now - env.INTERACTIONS_RETENTION_DAYS * DAY_MS;
   const roastHistoryCutoff = now - env.ROAST_HISTORY_RETENTION_DAYS * DAY_MS;
 
-  const recent = db
-    .prepare('DELETE FROM activity_recent WHERE created_at < ?')
-    .run(recentCutoff);
+  const recent = db.prepare('DELETE FROM activity_recent WHERE created_at < ?').run(recentCutoff);
 
-  const hourly = db
-    .prepare('DELETE FROM activity_hourly WHERE hour_bucket < ?')
-    .run(hourlyCutoff);
+  const hourly = db.prepare('DELETE FROM activity_hourly WHERE hour_bucket < ?').run(hourlyCutoff);
 
   const interactions = db
     .prepare('DELETE FROM interactions WHERE created_at < ?')

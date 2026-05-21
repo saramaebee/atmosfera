@@ -1,8 +1,8 @@
 import {
-  GoogleGenAI,
   type Content,
   type FunctionDeclaration,
   type GenerateContentResponse,
+  GoogleGenAI,
   type Part,
   type SafetySetting,
   type Schema,
@@ -10,9 +10,9 @@ import {
 import type { z } from 'zod';
 import {
   BlockedBySafetyError,
+  type SafetyPolicy,
   evaluateSafetyRatings,
   probabilityRank,
-  type SafetyPolicy,
 } from './safety';
 
 export const DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -150,11 +150,7 @@ function checkGeminiBlock(response: GenerateContentResponse): void {
     }
   }
   if (!worst) return;
-  throw new BlockedBySafetyError(
-    worst.category!,
-    worst.probability!,
-    'gemini',
-  );
+  throw new BlockedBySafetyError(worst.category!, worst.probability!, 'gemini');
 }
 
 export async function runToolLoop({

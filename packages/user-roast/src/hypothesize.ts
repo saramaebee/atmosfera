@@ -1,9 +1,9 @@
-import { Type, type Schema } from '@google/genai';
-import { generateJson } from '@atmosfera/gemini';
 import { getEnv } from '@atmosfera/config';
+import { generateJson } from '@atmosfera/gemini';
+import { type Schema, Type } from '@google/genai';
 import { z } from 'zod';
 import type { PriorRoast } from './db/roastHistory';
-import { summarizeFingerprint, type Fingerprint } from './fingerprint';
+import { type Fingerprint, summarizeFingerprint } from './fingerprint';
 import type { CachedMessage } from './sessionCache';
 
 const HypothesisSchema = z.object({
@@ -35,18 +35,34 @@ const HYPOTHESIS_RESPONSE_SCHEMA: Schema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          title: { type: Type.STRING, description: 'Short headline for the angle (max ~10 words).' },
+          title: {
+            type: Type.STRING,
+            description: 'Short headline for the angle (max ~10 words).',
+          },
           rationale: {
             type: Type.STRING,
             description: 'Why this is roast-worthy and what evidence to look for.',
           },
           searchHint: {
             type: Type.OBJECT,
-            description: 'Hints for the next phase. At least one of keyword, partnerUserId, or channelId should be set.',
+            description:
+              'Hints for the next phase. At least one of keyword, partnerUserId, or channelId should be set.',
             properties: {
-              keyword: { type: Type.STRING, nullable: true, description: 'Keyword to grep their messages for.' },
-              partnerUserId: { type: Type.STRING, nullable: true, description: 'User ID of an interaction partner to dig into.' },
-              channelId: { type: Type.STRING, nullable: true, description: 'Channel to scope the search to.' },
+              keyword: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'Keyword to grep their messages for.',
+              },
+              partnerUserId: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'User ID of an interaction partner to dig into.',
+              },
+              channelId: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'Channel to scope the search to.',
+              },
             },
           },
         },
@@ -88,8 +104,12 @@ function buildAvoidBlock(priorRoasts: PriorRoast[]): string {
   if (angles.length > 0) lines.push(`- Prior angle titles: ${angles.join(' | ')}`);
   if (keywords.length > 0) lines.push(`- Already-searched keywords: ${keywords.join(', ')}`);
   lines.push('');
-  lines.push('Pick fresh angles. If the same evidence keeps surfacing, find a different *frame* for it');
-  lines.push('(e.g. instead of "posts at 3am" → "the 3am philosopher arc"). Genuinely new angle > recycled angle.');
+  lines.push(
+    'Pick fresh angles. If the same evidence keeps surfacing, find a different *frame* for it',
+  );
+  lines.push(
+    '(e.g. instead of "posts at 3am" → "the 3am philosopher arc"). Genuinely new angle > recycled angle.',
+  );
   return lines.join('\n');
 }
 
