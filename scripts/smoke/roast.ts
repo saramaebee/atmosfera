@@ -14,10 +14,6 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { loadClimateCube } from '@atmosfera/climate';
-import { dbPathFromUrl, getEnv } from '@atmosfera/config';
-import { createDb, migrateDb } from '@atmosfera/db';
-import { resolveCity } from '@atmosfera/geocode';
 import {
   LENGTHS,
   RoastApiKeyMissingError,
@@ -25,6 +21,10 @@ import {
   getContrastRoast,
   getRoast,
 } from '@atmosfera/city-roast';
+import { loadClimateCube } from '@atmosfera/climate';
+import { dbPathFromUrl, getEnv } from '@atmosfera/config';
+import { createDb, migrateDb } from '@atmosfera/db';
+import { resolveCity } from '@atmosfera/geocode';
 
 const CITIES = ['Buenos Aires', 'Reykjavik'];
 

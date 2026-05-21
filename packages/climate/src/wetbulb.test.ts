@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import {
-  WB_75F_C,
-  WB_80F_C,
-  WB_85F_C,
-  cToF,
-  fToC,
-  wetBulbC,
-  wetBulbLabel,
-} from './wetbulb';
+import { WB_75F_C, WB_80F_C, WB_85F_C, cToF, fToC, wetBulbC, wetBulbLabel } from './wetbulb';
 
 describe('wetBulbC (Stull 2011)', () => {
   it('30°C / 50% RH lands in the low 20s', () => {

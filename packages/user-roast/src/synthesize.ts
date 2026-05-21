@@ -1,9 +1,9 @@
-import { HarmCategory, HarmProbability } from '@google/genai';
-import { runToolLoop, SAFETY_OFF, type SafetyPolicy } from '@atmosfera/gemini';
 import { getEnv } from '@atmosfera/config';
+import { SAFETY_OFF, type SafetyPolicy, runToolLoop } from '@atmosfera/gemini';
+import { HarmCategory, HarmProbability } from '@google/genai';
 import type { Guild, Snowflake } from 'discord.js';
 import type { PriorRoast } from './db/roastHistory';
-import { summarizeFingerprint, type Fingerprint } from './fingerprint';
+import { type Fingerprint, summarizeFingerprint } from './fingerprint';
 import type { Hypothesis } from './hypothesize';
 import type { RoastSession } from './sessionCache';
 import { buildRoastTools } from './tools';
@@ -36,7 +36,8 @@ function policyFor(tone: RoastTone): SafetyPolicy {
 
 const TONE_GUIDANCE: Record<RoastTone, string> = {
   sharp: `Tone: SHARP. Comedic, observational, witty. Punch at behaviors and quirks — never at identity, appearance, mental health, or anything someone can't change. Cut clean. Make them laugh at themselves.`,
-  brutal: `Tone: BRUTAL. The user opted into this. Comedy-roast style. Lean into the awkward specifics in the evidence. Still: nothing about identity (race, gender, sexuality, mental health, looks). Punch at behaviors, choices, and habits. Aim to make them cackle, not cry.`,
+  brutal:
+    'Tone: BRUTAL. The user opted into this. Comedy-roast style. Lean into the awkward specifics in the evidence. Still: nothing about identity (race, gender, sexuality, mental health, looks). Punch at behaviors, choices, and habits. Aim to make them cackle, not cry.',
 };
 
 function priorRoastsBlock(priorRoasts: PriorRoast[], fingerprint: Fingerprint): string {
@@ -135,7 +136,9 @@ Tool budget is bounded. Pick 1-3 calls that maximize roast material, then produc
 
   const citedIds = new Set<Snowflake>();
   for (const call of result.toolCalls) {
-    const r = call.result as { matches?: { id: string }[]; messages?: { id: string }[] } | undefined;
+    const r = call.result as
+      | { matches?: { id: string }[]; messages?: { id: string }[] }
+      | undefined;
     if (r?.matches) for (const m of r.matches) citedIds.add(m.id);
     if (r?.messages) for (const m of r.messages) citedIds.add(m.id);
   }

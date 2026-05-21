@@ -1,10 +1,10 @@
 import {
+  type CommandPermissionRule,
+  type Principal,
   listAuditEvents,
   listRulesForCommand,
   listRulesForGuild,
   parseAuditMetadata,
-  type CommandPermissionRule,
-  type Principal,
   removeRule,
   upsertRule,
 } from '@atmosfera/db';

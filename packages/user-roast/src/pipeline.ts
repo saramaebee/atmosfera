@@ -3,10 +3,10 @@ import { getEnv } from '@atmosfera/config';
 import type { Guild, GuildMember } from 'discord.js';
 import { getRecentRoastsForTarget, recordRoast } from './db/roastHistory';
 import { fetchChannelPage, readableTextChannels } from './discordFetch';
-import { buildFingerprint, type Fingerprint } from './fingerprint';
-import { generateHypotheses, type Hypothesis } from './hypothesize';
+import { type Fingerprint, buildFingerprint } from './fingerprint';
+import { type Hypothesis, generateHypotheses } from './hypothesize';
 import { RoastSession } from './sessionCache';
-import { synthesizeRoast, type RoastResult, type RoastTone } from './synthesize';
+import { type RoastResult, type RoastTone, synthesizeRoast } from './synthesize';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
