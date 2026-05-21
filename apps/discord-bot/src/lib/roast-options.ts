@@ -1,6 +1,3 @@
-import { type ClimateCube, loadClimateCube } from '@atmosfera/climate';
-import { getEnv } from '@atmosfera/config';
-import type { City } from '@atmosfera/db';
 import {
   DEFAULT_CULTURE,
   DEFAULT_LENGTH,
@@ -13,6 +10,9 @@ import {
   getContrastRoast,
   getRoast,
 } from '@atmosfera/city-roast';
+import { type ClimateCube, loadClimateCube } from '@atmosfera/climate';
+import { getEnv } from '@atmosfera/config';
+import type { City } from '@atmosfera/db';
 import type {
   SlashCommandBuilder,
   SlashCommandOptionsOnlyBuilder,

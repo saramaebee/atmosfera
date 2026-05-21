@@ -9,7 +9,7 @@ import {
   getUserRecentLengthBucketHistogram,
 } from './db/activity';
 import { getGuildConfig } from './db/config';
-import { getTopPartnersForUser, type Partner } from './db/interactions';
+import { type Partner, getTopPartnersForUser } from './db/interactions';
 import { parallelProbe, readableTextChannels } from './discordFetch';
 import type { RoastSession } from './sessionCache';
 
@@ -159,8 +159,7 @@ async function liveProbeFingerprint(params: {
       .slice(0, 8)
       .map(async ([userId, counts]) => {
         const member =
-          guild.members.cache.get(userId) ??
-          (await guild.members.fetch(userId).catch(() => null));
+          guild.members.cache.get(userId) ?? (await guild.members.fetch(userId).catch(() => null));
         return {
           userId,
           displayName: member?.displayName ?? null,

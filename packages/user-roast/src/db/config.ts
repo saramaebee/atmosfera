@@ -39,9 +39,9 @@ const DEFAULT_CONFIG = (guildId: string): GuildConfig => ({
 });
 
 export function getGuildConfig(guildId: string): GuildConfig {
-  const row = getDb()
-    .prepare('SELECT * FROM guild_config WHERE guild_id = ?')
-    .get(guildId) as GuildConfigRow | undefined;
+  const row = getDb().prepare('SELECT * FROM guild_config WHERE guild_id = ?').get(guildId) as
+    | GuildConfigRow
+    | undefined;
   return row ? rowToConfig(row) : DEFAULT_CONFIG(guildId);
 }
 
@@ -88,7 +88,7 @@ export function setBrutalAllowed(guildId: string, allowed: boolean): void {
 
 function ensureRow(guildId: string): void {
   getDb()
-    .prepare(`INSERT INTO guild_config (guild_id) VALUES (?) ON CONFLICT(guild_id) DO NOTHING`)
+    .prepare('INSERT INTO guild_config (guild_id) VALUES (?) ON CONFLICT(guild_id) DO NOTHING')
     .run(guildId);
 }
 

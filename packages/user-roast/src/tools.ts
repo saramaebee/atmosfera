@@ -1,5 +1,5 @@
-import { Type, type FunctionDeclaration } from '@google/genai';
 import type { ToolHandler } from '@atmosfera/gemini';
+import { type FunctionDeclaration, Type } from '@google/genai';
 import type { Guild, Snowflake } from 'discord.js';
 import { getGuildConfig } from './db/config';
 import { getHotChannelsForPair } from './db/interactions';
@@ -43,7 +43,8 @@ function searchTargetMessagesContaining(guild: Guild, session: RoastSession): To
         keyword: { type: Type.STRING, description: 'Case-insensitive substring to search for.' },
         channelId: {
           type: Type.STRING,
-          description: 'Optional. Limit search to a specific channel; otherwise search all known channels.',
+          description:
+            'Optional. Limit search to a specific channel; otherwise search all known channels.',
         },
       },
       required: ['keyword'],
@@ -191,7 +192,10 @@ function getMessagesNearTime(guild: Guild, session: RoastSession): ToolHandler {
       properties: {
         channelId: { type: Type.STRING },
         timestampIso: { type: Type.STRING, description: 'ISO timestamp.' },
-        radius: { type: Type.NUMBER, description: 'How many messages to include before+after. Max 10.' },
+        radius: {
+          type: Type.NUMBER,
+          description: 'How many messages to include before+after. Max 10.',
+        },
       },
       required: ['channelId', 'timestampIso'],
     },
@@ -204,7 +208,8 @@ function getMessagesNearTime(guild: Guild, session: RoastSession): ToolHandler {
       const channelId = String(args.channelId ?? '');
       const ts = Date.parse(String(args.timestampIso ?? ''));
       const radius = Math.min(Number(args.radius ?? 5), 10);
-      if (!channelId || !Number.isFinite(ts)) return { error: 'channelId and valid timestampIso required' };
+      if (!channelId || !Number.isFinite(ts))
+        return { error: 'channelId and valid timestampIso required' };
 
       const channel = readableTextChannels(guild).find((c) => c.id === channelId);
       if (!channel) return { error: 'channel not readable' };
@@ -222,7 +227,8 @@ function getMessagesNearTime(guild: Guild, session: RoastSession): ToolHandler {
 
       const sorted = [...batch.messages].sort((a, b) => a.createdAt - b.createdAt);
       const closestIdx = sorted.reduce((best, m, i) => {
-        const dBest = best === -1 ? Infinity : Math.abs(sorted[best]!.createdAt - ts);
+        const dBest =
+          best === -1 ? Number.POSITIVE_INFINITY : Math.abs(sorted[best]!.createdAt - ts);
         const dCurr = Math.abs(m.createdAt - ts);
         return dCurr < dBest ? i : best;
       }, -1);

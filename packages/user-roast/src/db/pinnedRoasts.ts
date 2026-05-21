@@ -123,7 +123,9 @@ export function getPinnedRoast(
   const id = resolvePinnedRoastId(guildId, ownerId, idOrPrefix);
   if (!id) return null;
   const row = getDb()
-    .prepare(`${SELECT_WITH_VOTES} WHERE p.guild_id = ? AND p.target_id = ? AND p.invocation_id = ?`)
+    .prepare(
+      `${SELECT_WITH_VOTES} WHERE p.guild_id = ? AND p.target_id = ? AND p.invocation_id = ?`,
+    )
     .get(guildId, ownerId, id) as DbRow | undefined;
   return row ? mapRow(row) : null;
 }
@@ -181,11 +183,7 @@ export function searchPinnedRoastsForUser(
   return rows.map(mapRow);
 }
 
-export function deletePinnedRoast(
-  guildId: string,
-  ownerId: string,
-  idOrPrefix: string,
-): boolean {
+export function deletePinnedRoast(guildId: string, ownerId: string, idOrPrefix: string): boolean {
   const id = resolvePinnedRoastId(guildId, ownerId, idOrPrefix);
   if (!id) return false;
   const res = getDb()
@@ -201,7 +199,7 @@ export function deletePinnedRoast(
 export function upvotePinnedRoast(invocationId: string, voterId: string): number | null {
   const db = getDb();
   const exists = db
-    .prepare(`SELECT 1 AS x FROM pinned_roasts WHERE invocation_id = ?`)
+    .prepare('SELECT 1 AS x FROM pinned_roasts WHERE invocation_id = ?')
     .get(invocationId) as { x: number } | undefined;
   if (!exists) return null;
 
@@ -215,14 +213,14 @@ export function upvotePinnedRoast(invocationId: string, voterId: string): number
 
 export function getVoteCount(invocationId: string): number {
   const row = getDb()
-    .prepare(`SELECT COUNT(*) AS n FROM pinned_roast_votes WHERE invocation_id = ?`)
+    .prepare('SELECT COUNT(*) AS n FROM pinned_roast_votes WHERE invocation_id = ?')
     .get(invocationId) as { n: number };
   return row.n;
 }
 
 export function isPinned(invocationId: string): boolean {
   const row = getDb()
-    .prepare(`SELECT 1 AS x FROM pinned_roasts WHERE invocation_id = ?`)
+    .prepare('SELECT 1 AS x FROM pinned_roasts WHERE invocation_id = ?')
     .get(invocationId) as { x: number } | undefined;
   return Boolean(row);
 }

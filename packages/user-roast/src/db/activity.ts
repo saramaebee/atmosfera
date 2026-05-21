@@ -185,11 +185,7 @@ export function getUserRankInGuild(
   };
 }
 
-export function getUserPostingDays(
-  guildId: string,
-  userId: string,
-  sinceMs: number,
-): number[] {
+export function getUserPostingDays(guildId: string, userId: string, sinceMs: number): number[] {
   const rows = getDb()
     .prepare(
       `SELECT DISTINCT (hour_bucket / ?) AS day

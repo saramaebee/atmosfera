@@ -1,11 +1,11 @@
 import {
   ActionRowBuilder,
   ButtonBuilder,
+  type ButtonInteraction,
   ButtonStyle,
+  type ChatInputCommandInteraction,
   ComponentType,
   EmbedBuilder,
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
   type Message,
 } from 'discord.js';
 
@@ -72,7 +72,9 @@ export async function sendConfirm(params: ConfirmParams): Promise<ConfirmOutcome
         settled = 'confirmed';
         await btn
           .update({
-            embeds: [EmbedBuilder.from(embed.toJSON()).setFooter({ text: onConfirmText ?? 'Confirmed.' })],
+            embeds: [
+              EmbedBuilder.from(embed.toJSON()).setFooter({ text: onConfirmText ?? 'Confirmed.' }),
+            ],
             components: [],
           })
           .catch(() => {});
@@ -81,7 +83,9 @@ export async function sendConfirm(params: ConfirmParams): Promise<ConfirmOutcome
         settled = 'cancelled';
         await btn
           .update({
-            embeds: [EmbedBuilder.from(embed.toJSON()).setFooter({ text: onCancelText ?? 'Cancelled.' })],
+            embeds: [
+              EmbedBuilder.from(embed.toJSON()).setFooter({ text: onCancelText ?? 'Cancelled.' }),
+            ],
             components: [],
           })
           .catch(() => {});

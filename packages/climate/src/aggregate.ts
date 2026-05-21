@@ -182,8 +182,7 @@ export function aggregateCube(years: HourlyYearData[], opts: AggregateOptions): 
   const wetBulbMean = reduceMatrix(wbSamples, mean);
 
   const yearCount = Math.max(years.length, 1);
-  const wetBulbAnnualPeakMean =
-    wbAnnualPeaks.length > 0 ? mean(wbAnnualPeaks) : Number.NaN;
+  const wetBulbAnnualPeakMean = wbAnnualPeaks.length > 0 ? mean(wbAnnualPeaks) : Number.NaN;
 
   let wetBulbWorstMonthIndex = 0;
   let wetBulbWorstMonthMean = Number.NEGATIVE_INFINITY;

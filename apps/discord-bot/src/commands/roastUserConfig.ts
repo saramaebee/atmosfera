@@ -1,9 +1,9 @@
 import {
+  OPTOUT_LOCK_MS,
   clearBrutalOptin,
   getGuildConfig,
   getRoastOptoutState,
   hasBrutalOptin,
-  OPTOUT_LOCK_MS,
   setBrutalOptin,
   setRoastOptedIn,
   setRoastOptedOut,

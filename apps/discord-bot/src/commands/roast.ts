@@ -1,10 +1,10 @@
 import { BlockedBySafetyError } from '@atmosfera/gemini';
 import {
+  type RoastTone,
   getGuildConfig,
   getRoastOptoutState,
   hasBrutalOptin,
   runRoast,
-  type RoastTone,
 } from '@atmosfera/user-roast';
 import { Command } from '@sapphire/framework';
 import type { GuildMember } from 'discord.js';
