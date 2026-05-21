@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+const intFromEnv = (def: number) =>
+  z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === undefined || v === '') return def;
+      const n = Number.parseInt(v, 10);
+      return Number.isFinite(n) ? n : def;
+    });
+
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1).optional(),
   DISCORD_CLIENT_ID: z.string().min(1).optional(),
@@ -9,6 +19,17 @@ const envSchema = z.object({
     .string()
     .default('atmosfera/0.1 (https://github.com/saratonin/atmosfera)'),
   GEMINI_API_KEY: z.string().min(1).optional(),
+
+  // user-roast pipeline tuning
+  ROAST_MAX_TOOL_ITERATIONS: intFromEnv(3),
+  ROAST_MAX_MESSAGES_FETCHED: intFromEnv(1500),
+  ROAST_TIMEOUT_MS: intFromEnv(30_000),
+
+  // user-roast retention (days)
+  ACTIVITY_RECENT_RETENTION_DAYS: intFromEnv(30),
+  ACTIVITY_HOURLY_RETENTION_DAYS: intFromEnv(30),
+  INTERACTIONS_RETENTION_DAYS: intFromEnv(30),
+  ROAST_HISTORY_RETENTION_DAYS: intFromEnv(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
