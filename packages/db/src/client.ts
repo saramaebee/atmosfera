@@ -5,13 +5,13 @@ import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import * as schema from './schema';
 
-export type Db = BunSQLiteDatabase<typeof schema>;
+export type Db = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
 export function createDb(path: string): Db {
   const sqlite = new Database(path);
   sqlite.exec('PRAGMA journal_mode = WAL');
   sqlite.exec('PRAGMA foreign_keys = ON');
-  return drizzle(sqlite, { schema });
+  return drizzle(sqlite, { schema }) as Db;
 }
 
 /**
