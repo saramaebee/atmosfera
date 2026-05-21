@@ -2,30 +2,45 @@ import { Command } from '@sapphire/framework';
 import { MessageFlags } from 'discord.js';
 import { buildRenderedMessage } from '../lib/charts';
 import { resolveCitiesOrPrompt } from '../lib/cities';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
 import { addRoastOptions, maybeGenerateRoast, parseRoastOptions } from '../lib/roast-options';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
+const SCOPE = { baseline: 'everyone' } as const;
+registerScope('muggy', SCOPE);
+
 export class MuggyCommand extends Command {
+  public constructor(context: Command.LoaderContext, options: Command.Options) {
+    super(context, {
+      ...options,
+      requiredClientPermissions: ['SendMessages', 'EmbedLinks', 'AttachFiles'],
+      preconditions: ['AtmosferaScope'],
+    });
+  }
+
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        addRoastOptions(
-          builder
-            .setName('muggy')
-            .setDescription('Muggy probability across the year for a city')
-            .addStringOption((opt) =>
-              opt
-                .setName('city')
-                .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
-                .setRequired(true),
-            )
-            .addBooleanOption((opt) =>
-              opt
-                .setName('wetbulb')
-                .setDescription('Add wet-bulb heat-stress summary (default: off)')
-                .setRequired(false),
-            ),
+        applyScopeToBuilder(
+          addRoastOptions(
+            builder
+              .setName('muggy')
+              .setDescription('Muggy probability across the year for a city')
+              .addStringOption((opt) =>
+                opt
+                  .setName('city')
+                  .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
+                  .setRequired(true),
+              )
+              .addBooleanOption((opt) =>
+                opt
+                  .setName('wetbulb')
+                  .setDescription('Add wet-bulb heat-stress summary (default: off)')
+                  .setRequired(false),
+              ),
+          ),
+          SCOPE,
         ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
     );

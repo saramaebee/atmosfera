@@ -1,3 +1,4 @@
+import { recordAuditEvent } from '@atmosfera/db';
 import {
   getGuildConfig,
   setBrutalAllowed,
@@ -5,35 +6,47 @@ import {
   setSlashEnabled,
 } from '@atmosfera/user-roast';
 import { Command } from '@sapphire/framework';
-import { PermissionFlagsBits } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { safeDeferReply, safeRespond } from '../lib/safeInteraction';
+
+const SCOPE = { baseline: 'admin', ownerOverride: true } as const;
+registerScope('roast-config', SCOPE);
 
 export class RoastConfigCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: 'roast-config' });
+    super(context, {
+      ...options,
+      name: 'roast-config',
+      requiredClientPermissions: ['SendMessages'],
+      preconditions: ['AtmosferaScope'],
+    });
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        builder
-          .setName('roast-config')
-          .setDescription('Configure user-roast triggers and tone allowances for this server.')
-          .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
-          .setDMPermission(false)
-          .addBooleanOption((o) =>
-            o.setName('slash').setDescription('Allow /roast user as a slash command in this server.'),
-          )
-          .addBooleanOption((o) =>
-            o
-              .setName('message')
-              .setDescription('Reserved — message-prefix commands are not active in atmosfera.'),
-          )
-          .addBooleanOption((o) =>
-            o
-              .setName('brutal_allowed')
-              .setDescription('Allow brutal tone (users still must opt in individually).'),
-          ),
+        applyScopeToBuilder(
+          builder
+            .setName('roast-config')
+            .setDescription('Configure user-roast triggers and tone allowances for this server.')
+            .addBooleanOption((o) =>
+              o
+                .setName('slash')
+                .setDescription('Allow /roast user as a slash command in this server.'),
+            )
+            .addBooleanOption((o) =>
+              o
+                .setName('message')
+                .setDescription('Reserved — message-prefix commands are not active in atmosfera.'),
+            )
+            .addBooleanOption((o) =>
+              o
+                .setName('brutal_allowed')
+                .setDescription('Allow brutal tone (users still must opt in individually).'),
+            ),
+          SCOPE,
+        ),
       chatInputRegisterOptions(),
     );
   }
@@ -44,16 +57,49 @@ export class RoastConfigCommand extends Command {
       return;
     }
 
+    // Defer up front — DB reads + audit insert can flirt with the 3s
+    // interaction-ack window, especially right after a cold start.
+    await safeDeferReply(interaction, { ephemeral: true });
+
     const slash = interaction.options.getBoolean('slash');
     const message = interaction.options.getBoolean('message');
     const brutal = interaction.options.getBoolean('brutal_allowed');
+
+    const prevCfg = getGuildConfig(interaction.guildId);
 
     if (slash !== null) setSlashEnabled(interaction.guildId, slash);
     if (message !== null) setMessageEnabled(interaction.guildId, message);
     if (brutal !== null) setBrutalAllowed(interaction.guildId, brutal);
 
     const cfg = getGuildConfig(interaction.guildId);
-    await interaction.reply({
+
+    if (slash !== null || message !== null || brutal !== null) {
+      recordAuditEvent(this.container.db, {
+        guildId: interaction.guildId,
+        actorId: interaction.user.id,
+        eventType: 'roast.config.update',
+        subjectType: 'guild',
+        subjectId: interaction.guildId,
+        metadata: {
+          previous: {
+            slash_enabled: Boolean(prevCfg.slash_enabled),
+            message_enabled: Boolean(prevCfg.message_enabled),
+            brutal_allowed: Boolean(prevCfg.brutal_allowed),
+          },
+          next: {
+            slash_enabled: Boolean(cfg.slash_enabled),
+            message_enabled: Boolean(cfg.message_enabled),
+            brutal_allowed: Boolean(cfg.brutal_allowed),
+          },
+          changed: {
+            slash: slash !== null,
+            message: message !== null,
+            brutal_allowed: brutal !== null,
+          },
+        },
+      });
+    }
+    await safeRespond(interaction, {
       content: [
         '**Current config**',
         `- Indexing: ${cfg.indexing_enabled ? 'on' : 'off'}`,

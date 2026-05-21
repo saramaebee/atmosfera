@@ -1,6 +1,3 @@
-import { loadClimateCube } from '@atmosfera/climate';
-import { RoastApiKeyMissingError, getRoast } from '@atmosfera/city-roast';
-import { getEnv } from '@atmosfera/config';
 import { BlockedBySafetyError } from '@atmosfera/gemini';
 import {
   getGuildConfig,
@@ -10,119 +7,55 @@ import {
   type RoastTone,
 } from '@atmosfera/user-roast';
 import { Command } from '@sapphire/framework';
-import { EmbedBuilder, type GuildMember, MessageFlags } from 'discord.js';
-import { cityDisplayName, resolveCitiesOrPrompt } from '../lib/cities';
+import type { GuildMember } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
-import { addRoastOptions, parseRoastOptions } from '../lib/roast-options';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
 import { sendUserRoastPreview } from '../lib/userRoastPreview';
+
+const SCOPE = { baseline: 'everyone' } as const;
+registerScope('roast', SCOPE);
 
 export class RoastCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: 'roast', description: 'Roast a city or a server member.' });
+    super(context, {
+      ...options,
+      name: 'roast',
+      description: 'Roast a server member based on their message patterns.',
+      requiredClientPermissions: [
+        'SendMessages',
+        'SendMessagesInThreads',
+        'EmbedLinks',
+        'ViewChannel',
+        'ReadMessageHistory',
+      ],
+      preconditions: ['AtmosferaScope'],
+    });
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        builder
-          .setName('roast')
-          .setDescription('Roast a city or a server member.')
-          .setDMPermission(false)
-          .addSubcommand((sub) =>
-            addRoastOptions(
-              sub
-                .setName('city')
-                .setDescription("Roast a city's climate (text only, no chart).")
-                .addStringOption((opt) =>
-                  opt
-                    .setName('city')
-                    .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
-                    .setRequired(true),
-                ),
+        applyScopeToBuilder(
+          builder
+            .setName('roast')
+            .setDescription('Roast a server member based on their message patterns.')
+            .setDMPermission(false)
+            .addUserOption((o) =>
+              o.setName('user').setDescription('Who to roast.').setRequired(true),
+            )
+            .addBooleanOption((o) =>
+              o
+                .setName('brutal')
+                .setDescription('Brutal tone (requires target to have opted in).')
+                .setRequired(false),
             ),
-          )
-          .addSubcommand((sub) =>
-            sub
-              .setName('user')
-              .setDescription('Roast a server member based on their message patterns.')
-              .addUserOption((o) =>
-                o.setName('user').setDescription('Who to roast.').setRequired(true),
-              )
-              .addBooleanOption((o) =>
-                o
-                  .setName('brutal')
-                  .setDescription('Brutal tone (requires target to have opted in).')
-                  .setRequired(false),
-              ),
-          ),
+          SCOPE,
+        ),
       chatInputRegisterOptions(),
     );
   }
 
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
-    const sub = interaction.options.getSubcommand(true);
-    if (sub === 'city') return this.runCity(interaction);
-    if (sub === 'user') return this.runUser(interaction);
-  }
-
-  private async runCity(interaction: Command.ChatInputCommandInteraction): Promise<void> {
-    const query = interaction.options.getString('city', true);
-    const parsed = parseRoastOptions(interaction);
-
-    const env = getEnv();
-    if (!env.GEMINI_API_KEY) {
-      await interaction.reply({
-        content: 'Roast unavailable — `GEMINI_API_KEY` not configured.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const cities = await resolveCitiesOrPrompt(interaction, 'roast', [query]);
-    if (!cities) return;
-    const city = cities[0]!;
-
-    await interaction.deferReply();
-
-    const cube = await loadClimateCube({
-      latitude: city.latitude,
-      longitude: city.longitude,
-      timezone: city.timezone,
-    });
-
-    let text: string;
-    try {
-      text = await getRoast(
-        {
-          tone: parsed.tone,
-          culture: parsed.culture,
-          length: parsed.length,
-          apiKey: env.GEMINI_API_KEY,
-        },
-        city,
-        cube,
-      );
-    } catch (e) {
-      if (e instanceof RoastApiKeyMissingError) {
-        await interaction.editReply('Roast unavailable — `GEMINI_API_KEY` not configured.');
-        return;
-      }
-      await interaction.editReply(`Roast failed: ${(e as Error).message}`);
-      return;
-    }
-
-    const embed = new EmbedBuilder()
-      .setTitle(`🔥 ${cityDisplayName(city)}`)
-      .setDescription(text)
-      .setColor(0xf97316)
-      .setFooter({
-        text: `Climatology ${cube.window.startYear}–${cube.window.endYear} · ${parsed.tone} · ${parsed.length}${parsed.culture ? '' : ' · no-culture'}`,
-      });
-
-    await interaction.editReply({ embeds: [embed] });
-  }
-
-  private async runUser(interaction: Command.ChatInputCommandInteraction): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {
       await interaction.reply({ content: 'Server only.', ephemeral: true });
       return;
@@ -253,7 +186,8 @@ function resolveTone(params: {
 
 function formatErrorMessage(err: unknown, max = 1800): string {
   if (err instanceof BlockedBySafetyError) {
-    const src = err.source === 'gemini' ? "Gemini's server-side filter" : "atmosfera's safety policy";
+    const src =
+      err.source === 'gemini' ? "Gemini's server-side filter" : "atmosfera's safety policy";
     return `🛑 Roast blocked by ${src} — flagged as **${friendlyCategory(err.category)}** (${err.probability}). Try a different target, tone, or angle.`;
   }
   const raw = err instanceof Error ? err.message : String(err);
