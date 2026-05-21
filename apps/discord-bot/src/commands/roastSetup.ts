@@ -1,27 +1,40 @@
+import { recordAuditEvent } from '@atmosfera/db';
 import { getGuildConfig, setIndexingEnabled } from '@atmosfera/user-roast';
 import { Command } from '@sapphire/framework';
-import { PermissionFlagsBits } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { safeDeferReply, safeRespond } from '../lib/safeInteraction';
+
+const SCOPE = { baseline: 'admin', ownerOverride: true } as const;
+registerScope('roast-setup', SCOPE);
 
 export class RoastSetupCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: 'roast-setup' });
+    super(context, {
+      ...options,
+      name: 'roast-setup',
+      requiredClientPermissions: ['SendMessages'],
+      preconditions: ['AtmosferaScope'],
+    });
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        builder
-          .setName('roast-setup')
-          .setDescription('Enable user-roast in this server: opts into metadata-only activity indexing.')
-          .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
-          .setDMPermission(false)
-          .addBooleanOption((opt) =>
-            opt
-              .setName('enable')
-              .setDescription('true to enable indexing, false to disable.')
-              .setRequired(true),
-          ),
+        applyScopeToBuilder(
+          builder
+            .setName('roast-setup')
+            .setDescription(
+              'Enable user-roast in this server: opts into metadata-only activity indexing.',
+            )
+            .addBooleanOption((opt) =>
+              opt
+                .setName('enable')
+                .setDescription('true to enable indexing, false to disable.')
+                .setRequired(true),
+            ),
+          SCOPE,
+        ),
       chatInputRegisterOptions(),
     );
   }
@@ -32,9 +45,25 @@ export class RoastSetupCommand extends Command {
       return;
     }
 
+    // Defer up front — DB reads + audit insert can flirt with the 3s ack window.
+    await safeDeferReply(interaction, { ephemeral: true });
+
     const enable = interaction.options.getBoolean('enable', true);
+    const prevCfg = getGuildConfig(interaction.guildId);
     setIndexingEnabled(interaction.guildId, enable);
     const cfg = getGuildConfig(interaction.guildId);
+
+    recordAuditEvent(this.container.db, {
+      guildId: interaction.guildId,
+      actorId: interaction.user.id,
+      eventType: 'roast.indexing.toggle',
+      subjectType: 'guild',
+      subjectId: interaction.guildId,
+      metadata: {
+        previousIndexingEnabled: Boolean(prevCfg.indexing_enabled),
+        newIndexingEnabled: Boolean(cfg.indexing_enabled),
+      },
+    });
 
     const lines = enable
       ? [
@@ -55,7 +84,7 @@ export class RoastSetupCommand extends Command {
           'Existing rows will purge on their normal retention schedule.',
         ];
 
-    await interaction.reply({ content: lines.join('\n'), ephemeral: true });
+    await safeRespond(interaction, { content: lines.join('\n'), ephemeral: true });
 
     this.container.logger.info(
       `[roast-setup] guild=${interaction.guildId} indexing=${cfg.indexing_enabled}`,

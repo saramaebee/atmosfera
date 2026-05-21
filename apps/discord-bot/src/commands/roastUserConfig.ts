@@ -11,19 +11,33 @@ import {
 import { Command } from '@sapphire/framework';
 import { chatInputRegisterOptions } from '../lib/commandScope';
 import { sendConfirm } from '../lib/confirm';
+import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+
+const SCOPE = { baseline: 'everyone', protected: true } as const;
+registerScope('roast-user-config', SCOPE);
 
 export class RoastUserConfigCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: 'roast-user-config' });
+    super(context, {
+      ...options,
+      name: 'roast-user-config',
+      requiredClientPermissions: ['SendMessages', 'EmbedLinks'],
+      preconditions: ['AtmosferaScope'],
+    });
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand(
       (builder) =>
-        builder
-          .setName('roast-user-config')
-          .setDescription('Per-user roast settings: brutal-tone consent and overall participation.')
-          .setDMPermission(false)
+        applyScopeToBuilder(
+          builder
+            .setName('roast-user-config')
+            .setDescription(
+              'Per-user roast settings: brutal-tone consent and overall participation.',
+            )
+            .setDMPermission(false),
+          SCOPE,
+        )
           .addSubcommand((sc) =>
             sc
               .setName('brutal')
@@ -38,7 +52,9 @@ export class RoastUserConfigCommand extends Command {
           .addSubcommand((sc) =>
             sc
               .setName('participation')
-              .setDescription("Opt out of roasting entirely (you also won't be able to roast others).")
+              .setDescription(
+                "Opt out of roasting entirely (you also won't be able to roast others).",
+              )
               .addBooleanOption((o) =>
                 o
                   .setName('enable')
