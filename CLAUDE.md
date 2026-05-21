@@ -39,3 +39,19 @@ Don't scaffold until we explicitly walk through it.
 - Ask before non-trivial edits.
 - Don't commit unless asked. Don't push.
 - Prefer pure-TS libs; avoid fragile native/canvas bindings (Bun compat risk).
+
+## Slash-command hygiene
+
+Every slash command in `apps/discord-bot/src/commands/` must declare all three:
+
+1. **`requiredClientPermissions`** — the union of Discord permissions every discord.js call site in the command (and any helpers it calls) needs. Examples: `interaction.editReply({ files })` needs `AttachFiles`; `interaction.channel.send()` needs `SendMessages` (or `SendMessagesInThreads` in threads); `channel.messages.fetch()` needs `ViewChannel` + `ReadMessageHistory`. **Whenever you add, remove, or change a discord.js call site, re-derive this list and update it.** A regression test asserts the field is non-empty but cannot catch drift — that's on the author.
+
+2. **`registerScope(name, { baseline, ownerOverride?, protected? })`** — registers the command's compiled-in user scope. `baseline: 'admin'` requires Manage Server; `baseline: 'everyone'` is open by default. `protected: true` makes the command immune to restrictive per-guild RBAC rules (users always retain access). `ownerOverride: true` lets users in `DISCORD_OWNER_IDS` bypass the user-scope check.
+
+3. **`preconditions: ['AtmosferaScope']`** — runs the layered access check (owner override → RBAC rule → baseline) at invocation time. Required on every command.
+
+Pipe every command's builder through `applyScopeToBuilder(builder, SCOPE)` inside `registerApplicationCommands`. It currently just enforces `setDMPermission(false)` for `admin`-baseline commands; we deliberately do **not** call `setDefaultMemberPermissions`, because Discord treats that as an invocation gate (would block non-admins regardless of bot-side RBAC grants). The `AtmosferaScope` precondition is the single source of truth for who can invoke.
+
+## Audit logging
+
+Any admin-facing mutation must call `recordAuditEvent({ guildId, actorId, eventType, subjectType, subjectId, metadata? })` from `@atmosfera/db`. Event-type convention: `domain.subject.action` (e.g. `permission.grant`, `roast.indexing.toggle`, `roast.config.update`). Don't audit ordinary user activity — that's covered by the message-metadata pipeline and disclosed in `/privacy data`.
