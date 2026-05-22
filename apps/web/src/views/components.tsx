@@ -53,7 +53,10 @@ export function GuildSwitcher(props: {
   }
   return (
     <div class="switcher">
-      <select onchange="location.href=this.value ? '/g/'+this.value : '/guilds'" aria-label="Switch guild">
+      <select
+        onchange="location.href=this.value ? '/g/'+this.value : '/guilds'"
+        aria-label="Switch guild"
+      >
         <option value="" selected={!props.activeGuildId}>
           Switch guild…
         </option>
