@@ -25,6 +25,9 @@ registerScope('permissions', SCOPE);
 const PROTECTED_REJECT =
   "🛡️ That command is **protected** — users always retain access. You can grant additional roles/users via `/permissions grant`, but you can't restrict it.";
 
+// Discord caps slash-command option choices at 25.
+const MAX_COMMAND_CHOICES = 25;
+
 export class PermissionsCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
@@ -38,6 +41,12 @@ export class PermissionsCommand extends Command {
 
   public override registerApplicationCommands(registry: Command.Registry) {
     const commandChoices = buildCommandChoices();
+    const totalScopes = listScopes().size;
+    if (totalScopes > MAX_COMMAND_CHOICES) {
+      this.container.logger.warn(
+        `[permissions] ${totalScopes} commands registered but only ${MAX_COMMAND_CHOICES} can appear in /permissions choices (Discord cap). Excess commands will be invisible to admins via the slash UI.`,
+      );
+    }
 
     registry.registerChatInputCommand(
       (builder) =>
@@ -316,7 +325,7 @@ function buildCommandChoices(): Array<{ name: string; value: string }> {
     value: name,
   }));
   all.sort((a, b) => a.value.localeCompare(b.value));
-  return all.slice(0, 25);
+  return all.slice(0, MAX_COMMAND_CHOICES);
 }
 
 interface ResolvedPrincipal extends Principal {
