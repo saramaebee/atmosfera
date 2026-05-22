@@ -99,7 +99,7 @@ export async function sendUserRoastPreview(params: PreviewParams): Promise<void>
         .setDescription(roast.roast.text)
         .setColor(0xff5577)
         .setFooter({
-          text: `Requested by ${invokerDisplayName}`,
+          text: `Requested by ${invokerDisplayName} · /roast`,
           iconURL: invokerAvatarUrl,
         });
       const publicButtons = buildPublicRoastButtons(invocationId);
