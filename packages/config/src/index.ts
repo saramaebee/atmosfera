@@ -41,6 +41,7 @@ const envSchema = z.object({
 
   // user-roast pipeline tuning
   ROAST_MAX_TOOL_ITERATIONS: intFromEnv(3),
+  ROAST_HYPOTHESIZE_MAX_TOOL_ITERATIONS: intFromEnv(4),
   ROAST_MAX_MESSAGES_FETCHED: intFromEnv(1500),
   ROAST_TIMEOUT_MS: intFromEnv(30_000),
 

@@ -90,14 +90,13 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
       }
     })();
 
-    const sampleMessages = session.allTargetMessages().slice(0, 30);
-
     if (timeoutHandle.timedOut) throw new Error('Roast timed out before hypothesis');
 
     const hypotheses = await generateHypotheses({
+      guildId: guild.id,
+      targetUserId: target.id,
       fingerprint,
       targetDisplay: target.displayName,
-      sampleMessages,
       priorRoasts,
     });
 

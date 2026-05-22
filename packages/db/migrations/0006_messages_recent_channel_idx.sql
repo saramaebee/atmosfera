@@ -1,0 +1,1 @@
+CREATE INDEX `idx_messages_recent_guild_channel_author_time` ON `messages_recent` (`guild_id`,`channel_id`,`author_id`,`created_at`);
