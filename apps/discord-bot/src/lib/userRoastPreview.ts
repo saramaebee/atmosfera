@@ -55,6 +55,8 @@ export function buildPublicRoastButtons(
 
 export interface PreviewParams {
   invokerId: string;
+  invokerDisplayName: string;
+  invokerAvatarUrl: string;
   invocationId: string;
   targetDisplay: string;
   roast: RoastOutput;
@@ -66,7 +68,15 @@ export interface PreviewParams {
  * Posts publicly on confirm, drops on discard or timeout.
  */
 export async function sendUserRoastPreview(params: PreviewParams): Promise<void> {
-  const { invokerId, invocationId, targetDisplay, roast, interaction } = params;
+  const {
+    invokerId,
+    invokerDisplayName,
+    invokerAvatarUrl,
+    invocationId,
+    targetDisplay,
+    roast,
+    interaction,
+  } = params;
   const embed = buildEmbed(roast, targetDisplay);
   const buttons = buildButtons(invocationId);
 
@@ -87,7 +97,11 @@ export async function sendUserRoastPreview(params: PreviewParams): Promise<void>
       const publicEmbed = new EmbedBuilder()
         .setTitle(`Roast — ${targetDisplay}`)
         .setDescription(roast.roast.text)
-        .setColor(0xff5577);
+        .setColor(0xff5577)
+        .setFooter({
+          text: `Requested by ${invokerDisplayName} · /roast`,
+          iconURL: invokerAvatarUrl,
+        });
       const publicButtons = buildPublicRoastButtons(invocationId);
 
       if (interaction.channel?.isTextBased() && interaction.channel.isSendable()) {

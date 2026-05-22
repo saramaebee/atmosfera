@@ -142,6 +142,8 @@ export class RoastCommand extends Command {
 
       await sendUserRoastPreview({
         invokerId: interaction.user.id,
+        invokerDisplayName: invokerMember.displayName,
+        invokerAvatarUrl: invokerMember.displayAvatarURL({ size: 64 }),
         invocationId: result.invocationId,
         targetDisplay: targetMember.displayName,
         roast: result,
