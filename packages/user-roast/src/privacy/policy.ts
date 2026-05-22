@@ -12,33 +12,34 @@
  * and bump PRIVACY_POLICY_VERSION. Keep PRIVACY.md in sync manually.
  */
 
-export const PRIVACY_POLICY_VERSION = '2026-05-21.5';
+export const PRIVACY_POLICY_VERSION = '2026-05-22.6';
 
 export const PRIVACY_SUMMARY = {
   thirdParties: [
     'Open-Meteo — receives city coordinates / timezone for climate fetches. No user data.',
     'Nominatim (geocoding fallback) — receives city query strings. No user data.',
-    "Google Gemini — receives climate-cube summaries for city snark, and anonymized message-pattern metadata + the target's display name for `/roast`. **Never raw message content.** Gemini inference-only; no data is used to train Google's models.",
+    "Google Gemini — receives climate-cube summaries for city snark, and anonymized message-pattern metadata, the target's display name, and a short sample of the target's recent messages for `/roast`. Gemini inference-only; no data is used to train Google's models.",
   ],
   retained: [
-    'Anonymized message metadata (timestamps, length buckets, attachment flags, mention counts). No content. 30-day rolling.',
+    'Anonymized message metadata (timestamps, length buckets, attachment flags, mention counts). 30-day rolling.',
     'Reply / mention edges between members. 30-day rolling.',
+    'Verbatim message text on guilds with `/roast-setup` enabled — **7 days rolling**. Edits are mirrored, deletes propagate within seconds, and users who opt out of `/roast` have their stored text purged immediately.',
     'Generated roast text + invocation metadata. Indefinite while pinned, 30-day otherwise.',
     'Pinned roasts the target explicitly saved, plus upvotes. Indefinite (user-controlled).',
     'Per-guild config flags, per-user opt-in / opt-out states.',
     'Command permission rules and the audit log (admin actions).',
-    'See `/privacy data` for the message-metadata breakdown and `/privacy audit-log` for what we log about admin actions.',
+    'See `/privacy data` for the message-data breakdown and `/privacy audit-log` for what we log about admin actions.',
   ],
   neverStored: [
-    'Raw message content. Ever — not in the database, not in logs.',
     'Direct messages.',
-    "Message edits or deletions (we don't subscribe to those events).",
+    'Messages from users who have opted out of `/roast` (existing rows are deleted on opt-out).',
+    'Embed contents, attachments, reactions, components.',
   ],
   commitments: [
     'Data is used solely to operate, debug, and improve atmosfera. Never sold or shared beyond the listed third-party pipeline.',
     'Never used to train any models. Gemini calls are inference-only.',
-    'User controls: `/roast-user-config participation enable:false` to opt out of being roasted; `/pinned-roast delete` to remove individual pins.',
-    'Data minimization: only the message stats listed in `/privacy data` are extracted. Full text is read in-memory and immediately discarded.',
+    'User controls: `/roast-user-config participation enable:false` to opt out of being roasted (also purges any stored message text); `/pinned-roast delete` to remove individual pins.',
+    'Data minimization: stored message text aged out after 7 days, hard cap.',
   ],
 } as const;
 
@@ -50,14 +51,16 @@ export const PRIVACY_DATA = {
     'Reply target user ID, if the message is a reply.',
     'Channel ID + timestamp.',
     'Bot / system-message flag (used to filter, never stored).',
+    'Verbatim message text (≤2000 chars) on `/roast-setup`-enabled guilds — see retention.',
   ],
   readNotStored: [
-    'Full message text — used in-memory only to derive the above stats, then discarded.',
     'Embed contents and message components.',
-    "Edits or deletions to existing messages (we don't subscribe to those events).",
+    'Attachment binaries — only the boolean flag and count are kept.',
+    'Reactions.',
   ],
   retention: [
     'Per-message metadata, per-channel hourly counts, reply/mention edges: **30 days rolling**.',
+    'Verbatim message text: **7 days rolling**. Tracks Discord state — edits update the row, deletes (single or bulk) drop the row.',
     'Roast invocation metadata: 30 days, unless the roast was pinned (then indefinite).',
     'Pinned roasts, opt-in/opt-out states, guild config: indefinite (under user control).',
   ],

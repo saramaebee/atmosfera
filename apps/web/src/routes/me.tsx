@@ -2,6 +2,7 @@ import { recordAuditEvent } from '@atmosfera/db';
 import {
   OPTOUT_LOCK_MS,
   clearBrutalOptin,
+  deleteMessagesForUser,
   getGuildConfig,
   getRoastOptoutState,
   hasBrutalOptin,
@@ -145,13 +146,14 @@ meRoutes.post('/:guildId/me/optout/out', (c) => {
   const { session, guild } = r;
   const userId = session.session.discordUserId;
   setRoastOptedOut(userId, guild.guildId);
+  const purgedRows = deleteMessagesForUser(userId, guild.guildId);
   recordAuditEvent(getWebDb(), {
     guildId: guild.guildId,
     actorId: userId,
     eventType: 'roast.optout.set',
     subjectType: 'user',
     subjectId: userId,
-    metadata: { via: 'web' },
+    metadata: { via: 'web', purgedMessageRows: purgedRows },
   });
   return c.redirect(`/g/${guild.guildId}/me`);
 });

@@ -10,8 +10,9 @@ import {
 } from './db/activity';
 import { getGuildConfig } from './db/config';
 import { type Partner, getTopPartnersForUser } from './db/interactions';
+import { getRecentTargetMessages } from './db/messages';
 import { parallelProbeUntil, readableTextChannels } from './discordFetch';
-import type { RoastSession } from './sessionCache';
+import type { CachedMessage, RoastSession } from './sessionCache';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -21,6 +22,14 @@ const SAMPLE_WINDOW_DAYS = 7;
 /** Top channels per target to live-probe deeply. Narrow + deep beats wide +
  * shallow for finding the target's actual recent messages. */
 const PROBE_CHANNEL_COUNT = 6;
+/** If the local messages_recent store already has at least this many of the
+ * target's messages, skip the live Discord probe entirely. The threshold
+ * mirrors `sampleMessages.slice(0, 30)` in pipeline.ts — once we hit that
+ * many, the synthesis prompt is saturated. */
+const DB_SEED_SUFFICIENT_THRESHOLD = 30;
+/** Hard cap on rows pulled from messages_recent into the session — keeps the
+ * synthesis prompt bounded even on hyper-active users. */
+const DB_SEED_LIMIT = 200;
 
 export interface Fingerprint {
   source: 'index' | 'live-probe';
@@ -222,6 +231,40 @@ function pickProbeChannels(
   return picked;
 }
 
+/**
+ * Seed the session cache with rows from messages_recent for this target,
+ * grouped by channel so RoastSession can dedupe against any later live probe.
+ * Returns the number of rows seeded (caller uses this to decide whether to
+ * skip the probe).
+ */
+function seedSessionFromDb(params: {
+  session: RoastSession;
+  guildId: Snowflake;
+  targetUserId: Snowflake;
+  sinceMs: number;
+}): number {
+  const rows = getRecentTargetMessages(
+    params.guildId,
+    params.targetUserId,
+    params.sinceMs,
+    DB_SEED_LIMIT,
+  );
+  if (rows.length === 0) return 0;
+  const byChannel = new Map<string, CachedMessage[]>();
+  for (const row of rows) {
+    const list = byChannel.get(row.channelId) ?? [];
+    list.push(row);
+    byChannel.set(row.channelId, list);
+  }
+  for (const [channelId, msgs] of byChannel) {
+    // exhausted=false: the messages_recent store is target-only, so we may
+    // still want a live probe later to capture the target's conversational
+    // partners' messages (used for reply-edge stitching).
+    params.session.appendBatch(channelId, msgs, false);
+  }
+  return rows.length;
+}
+
 export async function buildFingerprint(params: {
   guild: Guild;
   targetUserId: Snowflake;
@@ -232,22 +275,35 @@ export async function buildFingerprint(params: {
   const windowDays = params.windowDays ?? 30;
   const config = getGuildConfig(params.guild.id);
 
-  // Stats and message-text sample are decoupled: the index stores neither
-  // message content nor history older than its enable date, so we always
-  // live-probe to gather the past week's text for synthesis — regardless of
-  // whether the index has stats yet.
+  // Stats branch: aggregate counts/ranks/histograms from the index when
+  // indexing is enabled; otherwise we'll compute them from the live probe.
   const indexed = config.indexing_enabled
     ? await indexBackedFingerprint(params.guild, params.targetUserId, windowDays)
     : null;
 
-  const channels = pickProbeChannels(params.guild, indexed, PROBE_CHANNEL_COUNT);
+  // Sample-text branch: seed from the local 7d content table first. If we
+  // got enough rows for synthesis, skip the live probe — that's the steady-
+  // state path and the whole point of storing content. Cold-start guilds and
+  // hyper-quiet users fall through to the probe as a backfill.
   const cutoffMs = Date.now() - SAMPLE_WINDOW_DAYS * DAY_MS;
-  await parallelProbeUntil({
-    guild: params.guild,
-    channels,
-    cutoffMs,
-    session: params.session,
-  });
+  const seeded = config.indexing_enabled
+    ? seedSessionFromDb({
+        session: params.session,
+        guildId: params.guild.id,
+        targetUserId: params.targetUserId,
+        sinceMs: cutoffMs,
+      })
+    : 0;
+
+  if (seeded < DB_SEED_SUFFICIENT_THRESHOLD) {
+    const channels = pickProbeChannels(params.guild, indexed, PROBE_CHANNEL_COUNT);
+    await parallelProbeUntil({
+      guild: params.guild,
+      channels,
+      cutoffMs,
+      session: params.session,
+    });
+  }
 
   if (indexed) return indexed;
   return computeFingerprintFromSession({
