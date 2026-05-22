@@ -110,8 +110,10 @@ export function clearBrutalOptin(userId: string, guildId: string): void {
 export function hasBrutalOptin(userId: string, guildId: string): boolean {
   const row = getDb()
     .prepare('SELECT 1 AS one FROM brutal_optin WHERE user_id = ? AND guild_id = ?')
-    .get(userId, guildId) as { one: number } | undefined;
-  return row !== undefined;
+    .get(userId, guildId) as { one: number } | null;
+  // bun:sqlite's `.get()` returns null (not undefined) when no row matches —
+  // `row !== undefined` would always be true for `null`.
+  return row != null;
 }
 
 export const OPTOUT_LOCK_MS = 30 * 24 * 60 * 60 * 1000;
