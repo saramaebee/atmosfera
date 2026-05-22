@@ -3,5 +3,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["apps/*/src/**/*", "packages/*/src/**/*", "scripts/**/*"]
+  "include": ["apps/*/src/**/*", "packages/*/src/**/*", "scripts/**/*"],
+  "exclude": ["apps/web/src/**/*"]
 }
