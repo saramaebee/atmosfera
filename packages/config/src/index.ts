@@ -49,6 +49,20 @@ const envSchema = z.object({
   ACTIVITY_HOURLY_RETENTION_DAYS: intFromEnv(30),
   INTERACTIONS_RETENTION_DAYS: intFromEnv(30),
   ROAST_HISTORY_RETENTION_DAYS: intFromEnv(30),
+
+  // Web app (apps/web). All optional — the web app validates them itself at
+  // startup, so the bot can boot without these set.
+  DISCORD_CLIENT_SECRET: z.string().min(1).optional(),
+  DISCORD_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  // 32-byte secret, hex-encoded (64 chars). Used for cookie signing AND
+  // AES-GCM encryption of OAuth tokens at rest. Generate with:
+  //   openssl rand -hex 32
+  SESSION_SECRET: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, 'SESSION_SECRET must be 64 hex chars (32 bytes)')
+    .optional(),
+  WEB_PORT: intFromEnv(3000),
+  WEB_PUBLIC_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -79,4 +93,22 @@ export function getEnv(): Env {
 
 export function dbPathFromUrl(url: string): string {
   return url.startsWith('file:') ? url.slice('file:'.length) : url;
+}
+
+// Memoized at first read. Changing DISCORD_OWNER_IDS requires a process
+// restart to take effect.
+let ownersSet: Set<string> | null = null;
+
+function owners(): Set<string> {
+  if (ownersSet) return ownersSet;
+  ownersSet = new Set(getEnv().DISCORD_OWNER_IDS);
+  return ownersSet;
+}
+
+export function isBotOwner(userId: string): boolean {
+  return owners().has(userId);
+}
+
+export function listBotOwnerIds(): readonly string[] {
+  return [...owners()];
 }
