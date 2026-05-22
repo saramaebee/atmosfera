@@ -50,6 +50,12 @@ const envSchema = z.object({
   INTERACTIONS_RETENTION_DAYS: intFromEnv(30),
   ROAST_HISTORY_RETENTION_DAYS: intFromEnv(30),
 
+  // Internal bot↔web HTTP API. Optional; if INTERNAL_API_TOKEN is unset the
+  // bot does not start the server and the web app hides owner debug pages.
+  // Always loopback-bound; the token is the only auth.
+  INTERNAL_API_PORT: intFromEnv(4317),
+  INTERNAL_API_TOKEN: z.string().min(32, 'INTERNAL_API_TOKEN must be at least 32 chars').optional(),
+
   // Web app (apps/web). All optional — the web app validates them itself at
   // startup, so the bot can boot without these set.
   DISCORD_CLIENT_SECRET: z.string().min(1).optional(),
@@ -112,3 +118,9 @@ export function isBotOwner(userId: string): boolean {
 export function listBotOwnerIds(): readonly string[] {
   return [...owners()];
 }
+
+export function isInternalApiEnabled(): boolean {
+  return Boolean(getEnv().INTERNAL_API_TOKEN);
+}
+
+export * from './internal-api';
