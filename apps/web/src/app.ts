@@ -6,6 +6,7 @@ import { adminRoutes } from './routes/admin';
 import { auditRoutes } from './routes/audit';
 import { configRoutes } from './routes/config';
 import { guildRoutes } from './routes/guild';
+import { guildDebugRoutes } from './routes/guildDebug';
 import { guildsRoutes } from './routes/guilds';
 import { indexRoutes } from './routes/index_';
 import { meRoutes } from './routes/me';
@@ -27,6 +28,7 @@ app.route('/g', auditRoutes);
 app.route('/g', configRoutes);
 app.route('/g', permsRoutes);
 app.route('/g', usersRoutes);
+app.route('/g', guildDebugRoutes);
 app.route('/admin', adminRoutes);
 
 app.notFound((c) => c.text('Not found', 404));

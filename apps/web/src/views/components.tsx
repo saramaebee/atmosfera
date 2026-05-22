@@ -103,11 +103,12 @@ export interface GuildSidebarProps {
   guildName: string;
   iconHash: string | null;
   role: Role;
-  active: 'overview' | 'me' | 'audit' | 'config' | 'perms' | 'users';
+  active: 'overview' | 'me' | 'audit' | 'config' | 'perms' | 'users' | 'debug';
 }
 
 export function GuildSidebar(props: GuildSidebarProps) {
   const canAdmin = props.role === 'owner' || props.role === 'admin';
+  const isOwner = props.role === 'owner';
   const cls = (key: string) => `sidebar-item${key === props.active ? ' active' : ''}`;
 
   return (
@@ -150,6 +151,16 @@ export function GuildSidebar(props: GuildSidebarProps) {
           <a class={cls('users')} href={`/g/${props.guildId}/users`}>
             <Icon.Users />
             <span>Users</span>
+          </a>
+        </>
+      ) : null}
+
+      {isOwner ? (
+        <>
+          <div class="sidebar-section-label">Debug</div>
+          <a class={cls('debug')} href={`/g/${props.guildId}/debug/channels`}>
+            <Icon.Layers />
+            <span>Channels</span>
           </a>
         </>
       ) : null}

@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dbPathFromUrl, getEnv } from '@atmosfera/config';
+import { dbPathFromUrl, getEnv, isInternalApiEnabled } from '@atmosfera/config';
 import { type Db, createDb, migrateDb } from '@atmosfera/db';
 import { schedulePurge, setUserRoastDb } from '@atmosfera/user-roast';
 import {
@@ -11,6 +11,7 @@ import {
   container,
 } from '@sapphire/framework';
 import { GatewayIntentBits, Partials } from 'discord.js';
+import { startInternalApi } from './internal-api';
 
 // Bulk-overwrite so commands that aren't in our registry (e.g. leftover
 // skilishu commands like /roast-optin-brutal) get deleted on startup.
@@ -64,3 +65,13 @@ client.once('ready', (c) => {
 });
 
 await client.login(env.DISCORD_TOKEN);
+
+if (isInternalApiEnabled()) {
+  try {
+    const api = startInternalApi(client);
+    console.log(`internal api listening on 127.0.0.1:${api.port}`);
+  } catch (err) {
+    // Port-in-use or similar — keep the bot running, log loudly.
+    console.error('internal api failed to start:', err);
+  }
+}
