@@ -144,3 +144,52 @@ The next push to `main` will pull you forward again, so this is a temporary leve
 **Bot starts, no slash commands appear in your dev guild.** Sapphire registers commands against the guild ID. Check `DISCORD_DEV_GUILD_ID` is set in `~/atmosfera/.env` AND that the bot was invited to that guild with the `applications.commands` scope.
 
 **`Permission denied (publickey)` from the Actions deploy.** The pub key isn't in `~/.ssh/authorized_keys` on the VM, OR the priv key in the GH secret has trailing whitespace / missing trailing newline. Re-copy the full key including the `-----BEGIN`/`-----END` lines.
+
+## Optional: moderation web app (apps/web)
+
+The web app at `apps/web` exposes a moderation dashboard with Discord OAuth login,
+multi-guild switching, the audit log, RBAC editor, per-guild config toggles, and an
+owner-only `/admin` page. It runs as a separate `atmosfera-web` systemd unit on the
+same VM and shares the SQLite file with the bot via WAL mode.
+
+### One-shot install on the VM
+
+After the main `install.sh` is done:
+
+```bash
+bash ~/atmosfera/deploy/install-web.sh
+```
+
+This writes `/etc/systemd/system/atmosfera-web.service` and grants the deploy user
+passwordless `systemctl restart atmosfera-web`.
+
+### Required env additions
+
+Add these to `~/atmosfera/.env`:
+
+```
+DISCORD_CLIENT_SECRET=...
+DISCORD_OAUTH_REDIRECT_URI=https://yourdomain/auth/discord/callback
+SESSION_SECRET=$(openssl rand -hex 32)
+WEB_PUBLIC_URL=https://yourdomain
+WEB_PORT=3000
+```
+
+Register the redirect URI in the Discord developer portal under the application's
+OAuth2 → Redirects list. Scopes used: `identify guilds`.
+
+Bot owners (anyone in `DISCORD_OWNER_IDS`) get god-mode access in the web app —
+they can switch into any guild the bot is in and see the cross-guild stats at
+`/admin`. The same comma-separated list controls slash-command owner overrides.
+
+### Start it
+
+```bash
+sudo systemctl start atmosfera-web
+journalctl -u atmosfera-web -f
+```
+
+For HTTPS on a real domain, put Caddy or nginx in front of `localhost:3000`. The
+auto-deploy workflow restarts `atmosfera-web` alongside the bot on every push to
+`main`, but only if the unit is already installed — so you can hold off on this
+piece without affecting bot deploys.
