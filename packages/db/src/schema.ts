@@ -143,6 +143,14 @@ export const messagesRecent = sqliteTable(
   (t) => [
     index('idx_messages_recent_guild_author_time').on(t.guildId, t.authorId, t.createdAt),
     index('idx_messages_recent_created').on(t.createdAt),
+    // Supports per-channel slices (channel-scoped search, time windows, and
+    // "messages in #X by user Y") used by the local-first roast tools.
+    index('idx_messages_recent_guild_channel_author_time').on(
+      t.guildId,
+      t.channelId,
+      t.authorId,
+      t.createdAt,
+    ),
   ],
 );
 

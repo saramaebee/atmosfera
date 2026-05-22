@@ -139,3 +139,259 @@ export function purgeMessagesOlderThan(cutoffMs: number): number {
   const res = db.prepare('DELETE FROM messages_recent WHERE created_at < ?').run(cutoffMs);
   return Number(res.changes);
 }
+
+interface MessageRowSelect {
+  message_id: string;
+  channel_id: string;
+  author_id: string;
+  created_at: number;
+  content: string;
+  is_reply: number;
+  reply_to_id: string | null;
+}
+
+function rowToCached(r: MessageRowSelect): CachedMessage {
+  return {
+    id: r.message_id,
+    channelId: r.channel_id,
+    authorId: r.author_id,
+    createdAt: r.created_at,
+    content: r.content,
+    isReply: r.is_reply === 1,
+    replyToId: r.reply_to_id,
+  };
+}
+
+const SELECT_COLS = 'message_id, channel_id, author_id, created_at, content, is_reply, reply_to_id';
+
+/**
+ * Escape LIKE wildcards in a user-supplied keyword so a search for "100%
+ * legit" doesn't degenerate into a full table scan match-all. Pair with
+ * ESCAPE '\\' in the query.
+ */
+function escapeLike(raw: string): string {
+  return raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+/**
+ * Case-insensitive substring search across the target's messages. Scoped to
+ * (guild, author) and optionally to a single channel. Uses
+ * idx_messages_recent_guild_author_time (or the channel composite when
+ * channelId is set). Returns newest-first.
+ */
+export function searchTargetMessagesText(params: {
+  guildId: string;
+  authorId: string;
+  keyword: string;
+  channelId?: string | null;
+  sinceMs: number;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, authorId, keyword, channelId, sinceMs, limit = 20 } = params;
+  if (!keyword) return [];
+  const db = getDb();
+  const pattern = `%${escapeLike(keyword.toLowerCase())}%`;
+  const rows = channelId
+    ? db
+        .prepare(
+          `SELECT ${SELECT_COLS}
+             FROM messages_recent
+            WHERE guild_id = ? AND author_id = ? AND channel_id = ?
+              AND created_at >= ?
+              AND LOWER(content) LIKE ? ESCAPE '\\'
+            ORDER BY created_at DESC
+            LIMIT ?`,
+        )
+        .all(guildId, authorId, channelId, sinceMs, pattern, limit)
+    : db
+        .prepare(
+          `SELECT ${SELECT_COLS}
+             FROM messages_recent
+            WHERE guild_id = ? AND author_id = ? AND created_at >= ?
+              AND LOWER(content) LIKE ? ESCAPE '\\'
+            ORDER BY created_at DESC
+            LIMIT ?`,
+        )
+        .all(guildId, authorId, sinceMs, pattern, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * Every message in a channel within a time window, any author. Used by the
+ * synthesis `getMessagesNearTime` tool to reconstruct context around a
+ * specific moment. Chronological (ascending) so the result reads naturally.
+ */
+export function getMessagesByChannelTime(params: {
+  guildId: string;
+  channelId: string;
+  fromMs: number;
+  toMs: number;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, channelId, fromMs, toMs, limit = 40 } = params;
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLS}
+         FROM messages_recent
+        WHERE guild_id = ? AND channel_id = ?
+          AND created_at >= ? AND created_at <= ?
+        ORDER BY created_at ASC
+        LIMIT ?`,
+    )
+    .all(guildId, channelId, fromMs, toMs, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * Replies between userA and userB in either direction. A "reply turn" is a
+ * message authored by one user whose `reply_to_id` resolves to a message
+ * authored by the other. Returns the *reply* side (m1) of each pair,
+ * newest-first. The original message (m2) can be re-fetched by message_id
+ * if needed.
+ */
+export function getReplyChainMessages(params: {
+  guildId: string;
+  userA: string;
+  userB: string;
+  sinceMs: number;
+  channelId?: string | null;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, userA, userB, sinceMs, channelId, limit = 30 } = params;
+  const db = getDb();
+  const baseSql = `
+    SELECT m1.message_id, m1.channel_id, m1.author_id, m1.created_at, m1.content,
+           m1.is_reply, m1.reply_to_id
+      FROM messages_recent AS m1
+      JOIN messages_recent AS m2
+        ON m1.reply_to_id = m2.message_id
+       AND m1.guild_id = m2.guild_id
+     WHERE m1.guild_id = ?
+       AND m1.created_at >= ?
+       AND (
+         (m1.author_id = ? AND m2.author_id = ?)
+         OR
+         (m1.author_id = ? AND m2.author_id = ?)
+       )`;
+  const rows = channelId
+    ? db
+        .prepare(`${baseSql} AND m1.channel_id = ? ORDER BY m1.created_at DESC LIMIT ?`)
+        .all(guildId, sinceMs, userA, userB, userB, userA, channelId, limit)
+    : db
+        .prepare(`${baseSql} ORDER BY m1.created_at DESC LIMIT ?`)
+        .all(guildId, sinceMs, userA, userB, userB, userA, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * The target's longest messages — by content length, descending. Surfaces
+ * "actually-wrote-a-thesis" specimens that the chronological newest-first
+ * default would miss.
+ */
+export function getLongestTargetMessages(params: {
+  guildId: string;
+  authorId: string;
+  sinceMs: number;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, authorId, sinceMs, limit = 10 } = params;
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLS}
+         FROM messages_recent
+        WHERE guild_id = ? AND author_id = ? AND created_at >= ?
+        ORDER BY LENGTH(content) DESC, created_at DESC
+        LIMIT ?`,
+    )
+    .all(guildId, authorId, sinceMs, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * Target messages posted at specific UTC hours. Empty `hoursUtc` returns
+ * nothing (would otherwise match everything — almost certainly a bug at the
+ * caller). The model passes e.g. `[22,23,0,1,2,3,4]` for "late-night UTC".
+ */
+export function getTargetMessagesByHourUtc(params: {
+  guildId: string;
+  authorId: string;
+  hoursUtc: number[];
+  sinceMs: number;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, authorId, hoursUtc, sinceMs, limit = 20 } = params;
+  if (hoursUtc.length === 0) return [];
+  const hours = [...new Set(hoursUtc.filter((h) => Number.isInteger(h) && h >= 0 && h <= 23))];
+  if (hours.length === 0) return [];
+  const placeholders = hours.map(() => '?').join(',');
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLS}
+         FROM messages_recent
+        WHERE guild_id = ? AND author_id = ? AND created_at >= ?
+          AND CAST(strftime('%H', created_at / 1000, 'unixepoch') AS INTEGER) IN (${placeholders})
+        ORDER BY created_at DESC
+        LIMIT ?`,
+    )
+    .all(guildId, authorId, sinceMs, ...hours, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * Per-channel slice of the target's messages — for hypothesize exploration
+ * ("show me what they say in #serious vs #shitposting"). Chronological
+ * newest-first, uses idx_messages_recent_guild_channel_author_time.
+ */
+export function getTargetMessagesInChannel(params: {
+  guildId: string;
+  authorId: string;
+  channelId: string;
+  sinceMs: number;
+  limit?: number;
+}): CachedMessage[] {
+  const { guildId, authorId, channelId, sinceMs, limit = 20 } = params;
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLS}
+         FROM messages_recent
+        WHERE guild_id = ? AND channel_id = ? AND author_id = ?
+          AND created_at >= ?
+        ORDER BY created_at DESC
+        LIMIT ?`,
+    )
+    .all(guildId, channelId, authorId, sinceMs, limit);
+  return (rows as MessageRowSelect[]).map(rowToCached);
+}
+
+/**
+ * Channel distribution for the target — how many messages they posted per
+ * channel since `sinceMs`. Sorted by count desc.
+ */
+export interface ChannelCount {
+  channel_id: string;
+  count: number;
+}
+
+export function getTargetChannelCounts(params: {
+  guildId: string;
+  authorId: string;
+  sinceMs: number;
+  limit?: number;
+}): ChannelCount[] {
+  const { guildId, authorId, sinceMs, limit = 20 } = params;
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT channel_id, COUNT(*) AS count
+         FROM messages_recent
+        WHERE guild_id = ? AND author_id = ? AND created_at >= ?
+        GROUP BY channel_id
+        ORDER BY count DESC
+        LIMIT ?`,
+    )
+    .all(guildId, authorId, sinceMs, limit) as ChannelCount[];
+}

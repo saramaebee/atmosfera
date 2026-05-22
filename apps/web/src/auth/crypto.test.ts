@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'bun:test';
+import { resetEnvCacheForTests } from '@atmosfera/config';
 
 // Set a fixed SESSION_SECRET *before* importing the module under test so the
 // getEnv cache picks it up. (32 random bytes, hex-encoded.)
 process.env.SESSION_SECRET = 'a'.repeat(64);
+// And reset the module-level cache in @atmosfera/config — another test file
+// may have already called getEnv() (e.g. a test that exercises code reading
+// MESSAGE_CONTENT_RETENTION_DAYS), which would have locked in a snapshot
+// without SESSION_SECRET.
+resetEnvCacheForTests();
 
 const { decryptToken, encryptToken, pkceChallenge, signCookie, verifyCookie } = await import(
   './crypto'

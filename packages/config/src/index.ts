@@ -41,6 +41,7 @@ const envSchema = z.object({
 
   // user-roast pipeline tuning
   ROAST_MAX_TOOL_ITERATIONS: intFromEnv(3),
+  ROAST_HYPOTHESIZE_MAX_TOOL_ITERATIONS: intFromEnv(4),
   ROAST_MAX_MESSAGES_FETCHED: intFromEnv(1500),
   ROAST_TIMEOUT_MS: intFromEnv(30_000),
 
@@ -98,6 +99,17 @@ export function getEnv(): Env {
   }
   cached = parsed.data;
   return cached;
+}
+
+/**
+ * Drop the cached parse so the next `getEnv()` call re-reads `process.env`.
+ * Test-only: production code never mutates the environment mid-process. Use
+ * this when a test sets `process.env.X` after some earlier test caused
+ * `getEnv()` to cache an environment without `X`.
+ */
+export function resetEnvCacheForTests(): void {
+  cached = undefined;
+  ownersSet = null;
 }
 
 export function dbPathFromUrl(url: string): string {
