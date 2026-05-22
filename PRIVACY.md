@@ -11,7 +11,7 @@ User-roast policy version: **2026-05-22.6**
 - Per-hour aggregated message counts per (user, channel) — counts only, not content. 30-day retention.
 - Per-message metadata (channel, timestamp, length bucket, has-attachment flag, is-reply flag, mention count) — 30-day retention.
 - Reply and @mention edges (who interacted with whom, when, in which channel) — 30-day retention.
-- **Verbatim message text** on guilds with `/roast-setup` enabled — **7-day rolling**. Edits in Discord are mirrored to the row; deletes (single or bulk-mod) propagate within seconds; opting out of `/roast` purges your stored text immediately. Stored only to seed the roast pipeline's recent-message sample so we can synthesize without re-fetching from Discord on every roast.
+- **Verbatim message text** on servers that have explicitly opted in — **7-day rolling**. Edits in Discord are mirrored to the row; deletes (single or bulk-mod) propagate within seconds; opting out of `/roast` purges your stored text immediately. Stored only to seed the roast pipeline's recent-message sample so we can synthesize without re-fetching from Discord on every roast.
 - Roast history metadata: angle labels, partner IDs name-dropped, search keywords used — 30-day retention. Used to make repeat roasts feel less repetitive.
 - Pinned roasts: when the target of a roast explicitly clicks 📌 Pin on a public roast, we store the roast text along with the channel/message IDs that contained it, plus the upvote ledger (which voters approved which pinned roast). Retained until the owner deletes via `/pinned-roast delete`; not subject to the 30-day purge.
 - Per-guild config: indexing on/off, command toggles, brutal-mode allowed.

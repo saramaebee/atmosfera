@@ -23,7 +23,7 @@ export const PRIVACY_SUMMARY = {
   retained: [
     'Anonymized message metadata (timestamps, length buckets, attachment flags, mention counts). 30-day rolling.',
     'Reply / mention edges between members. 30-day rolling.',
-    'Verbatim message text on guilds with `/roast-setup` enabled — **7 days rolling**. Edits are mirrored, deletes propagate within seconds, and users who opt out of `/roast` have their stored text purged immediately.',
+    'Verbatim message text on servers that have explicitly opted in — **7 days rolling**. Edits are mirrored, deletes propagate within seconds, and users who opt out of `/roast` have their stored text purged immediately.',
     'Generated roast text + invocation metadata. Indefinite while pinned, 30-day otherwise.',
     'Pinned roasts the target explicitly saved, plus upvotes. Indefinite (user-controlled).',
     'Per-guild config flags, per-user opt-in / opt-out states.',
@@ -51,7 +51,7 @@ export const PRIVACY_DATA = {
     'Reply target user ID, if the message is a reply.',
     'Channel ID + timestamp.',
     'Bot / system-message flag (used to filter, never stored).',
-    'Verbatim message text (≤2000 chars) on `/roast-setup`-enabled guilds — see retention.',
+    'Verbatim message text (≤2000 chars) on servers that have explicitly opted in — see retention.',
   ],
   readNotStored: [
     'Embed contents and message components.',
