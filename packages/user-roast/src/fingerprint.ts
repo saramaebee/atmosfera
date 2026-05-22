@@ -1,4 +1,4 @@
-import type { Guild, Snowflake } from 'discord.js';
+import type { Guild, GuildTextBasedChannel, Snowflake } from 'discord.js';
 import {
   computeLongestStreak,
   getUserActivityStats,
@@ -10,10 +10,17 @@ import {
 } from './db/activity';
 import { getGuildConfig } from './db/config';
 import { type Partner, getTopPartnersForUser } from './db/interactions';
-import { parallelProbe, readableTextChannels } from './discordFetch';
+import { parallelProbeUntil, readableTextChannels } from './discordFetch';
 import type { RoastSession } from './sessionCache';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Past-week message text is what synthesis needs as a sample — keep this in
+ * sync with the user-visible "references last 7 days" expectation. */
+const SAMPLE_WINDOW_DAYS = 7;
+/** Top channels per target to live-probe deeply. Narrow + deep beats wide +
+ * shallow for finding the target's actual recent messages. */
+const PROBE_CHANNEL_COUNT = 6;
 
 export interface Fingerprint {
   source: 'index' | 'live-probe';
@@ -95,21 +102,14 @@ async function indexBackedFingerprint(
   };
 }
 
-async function liveProbeFingerprint(params: {
+/** Build a fingerprint from messages already sitting in the session cache.
+ * Assumes the caller has already probed live data. */
+async function computeFingerprintFromSession(params: {
   guild: Guild;
   targetUserId: Snowflake;
-  invokerUserId: Snowflake;
   session: RoastSession;
 }): Promise<Fingerprint> {
   const { guild, targetUserId, session } = params;
-
-  const channels = readableTextChannels(guild);
-  await parallelProbe({
-    guild,
-    channels: channels.slice(0, 12),
-    perChannelLimit: 50,
-    session,
-  });
 
   const targetMessages = session.allTargetMessages();
   const channelCounts = new Map<string, number>();
@@ -173,12 +173,12 @@ async function liveProbeFingerprint(params: {
     source: 'live-probe',
     guildId: guild.id,
     targetUserId,
-    windowDays: 0,
+    windowDays: SAMPLE_WINDOW_DAYS,
     totalMessages: targetMessages.length,
     avgMessageLength: targetMessages.length > 0 ? totalLen / targetMessages.length : 0,
     attachmentRate: 0,
     activeChannels: channelCounts.size,
-    totalGuildChannels: channels.length,
+    totalGuildChannels: readableTextChannels(guild).length,
     rank: { position: -1, total: -1 },
     topChannels,
     hourHistogram: hourCounts,
@@ -186,6 +186,40 @@ async function liveProbeFingerprint(params: {
     topPartners: partnerEntries,
     lengthBucketHistogram: lenBuckets,
   };
+}
+
+/**
+ * Pick the channels to live-probe for the target's recent message text.
+ * Prefers the index's top channels for the target (they're where they
+ * actually post). Falls back to / pads with the first readable channels by
+ * position when the index has no signal yet.
+ */
+function pickProbeChannels(
+  guild: Guild,
+  indexed: Fingerprint | null,
+  count: number,
+): GuildTextBasedChannel[] {
+  const readable = readableTextChannels(guild);
+  const byId = new Map(readable.map((c) => [c.id, c]));
+  const picked: GuildTextBasedChannel[] = [];
+  const seen = new Set<string>();
+  if (indexed) {
+    for (const tc of indexed.topChannels) {
+      const ch = byId.get(tc.channelId);
+      if (ch && !seen.has(ch.id)) {
+        picked.push(ch);
+        seen.add(ch.id);
+        if (picked.length >= count) return picked;
+      }
+    }
+  }
+  for (const ch of readable) {
+    if (seen.has(ch.id)) continue;
+    picked.push(ch);
+    seen.add(ch.id);
+    if (picked.length >= count) return picked;
+  }
+  return picked;
 }
 
 export async function buildFingerprint(params: {
@@ -198,12 +232,29 @@ export async function buildFingerprint(params: {
   const windowDays = params.windowDays ?? 30;
   const config = getGuildConfig(params.guild.id);
 
-  if (config.indexing_enabled) {
-    const indexed = await indexBackedFingerprint(params.guild, params.targetUserId, windowDays);
-    if (indexed) return indexed;
-  }
+  // Stats and message-text sample are decoupled: the index stores neither
+  // message content nor history older than its enable date, so we always
+  // live-probe to gather the past week's text for synthesis — regardless of
+  // whether the index has stats yet.
+  const indexed = config.indexing_enabled
+    ? await indexBackedFingerprint(params.guild, params.targetUserId, windowDays)
+    : null;
 
-  return liveProbeFingerprint(params);
+  const channels = pickProbeChannels(params.guild, indexed, PROBE_CHANNEL_COUNT);
+  const cutoffMs = Date.now() - SAMPLE_WINDOW_DAYS * DAY_MS;
+  await parallelProbeUntil({
+    guild: params.guild,
+    channels,
+    cutoffMs,
+    session: params.session,
+  });
+
+  if (indexed) return indexed;
+  return computeFingerprintFromSession({
+    guild: params.guild,
+    targetUserId: params.targetUserId,
+    session: params.session,
+  });
 }
 
 export function summarizeFingerprint(fp: Fingerprint, targetDisplay: string): string {
