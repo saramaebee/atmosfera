@@ -101,6 +101,17 @@ export function getEnv(): Env {
   return cached;
 }
 
+/**
+ * Drop the cached parse so the next `getEnv()` call re-reads `process.env`.
+ * Test-only: production code never mutates the environment mid-process. Use
+ * this when a test sets `process.env.X` after some earlier test caused
+ * `getEnv()` to cache an environment without `X`.
+ */
+export function resetEnvCacheForTests(): void {
+  cached = undefined;
+  ownersSet = null;
+}
+
 export function dbPathFromUrl(url: string): string {
   return url.startsWith('file:') ? url.slice('file:'.length) : url;
 }
