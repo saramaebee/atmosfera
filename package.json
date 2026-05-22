@@ -7,8 +7,9 @@
     "test": "bun test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "typecheck": "tsc -p tsconfig.json",
-    "dev": "bun --hot apps/discord-bot/src/index.ts",
+    "typecheck": "tsc -p tsconfig.json && bun --filter @atmosfera/web typecheck",
+    "dev": "bun --watch apps/discord-bot/src/index.ts",
+    "dev:web": "bun --filter @atmosfera/web dev",
     "render": "bun scripts/render.ts",
     "smoke:resvg": "bun scripts/smoke/resvg.ts"
   },
@@ -20,7 +21,8 @@
     "@atmosfera/geocode": "workspace:*",
     "@atmosfera/gemini": "workspace:*",
     "@atmosfera/city-roast": "workspace:*",
-    "@atmosfera/user-roast": "workspace:*"
+    "@atmosfera/user-roast": "workspace:*",
+    "@atmosfera/web": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
