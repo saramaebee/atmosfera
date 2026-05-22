@@ -3,8 +3,11 @@ import { type FunctionDeclaration, Type } from '@google/genai';
 import type { Guild, Snowflake } from 'discord.js';
 import { getGuildConfig } from './db/config';
 import { getHotChannelsForPair } from './db/interactions';
+import { getRecentMessagesByAuthorInChannels } from './db/messages';
 import { deepenChannel, readableTextChannels } from './discordFetch';
 import type { CachedMessage, RoastSession } from './sessionCache';
+
+const REPLY_CHAIN_SEED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const MAX_RESULTS_PER_TOOL_CALL = 20;
 
@@ -141,6 +144,29 @@ function getReplyChainBetween(
 
       const readable = readableTextChannels(guild);
       const channels = readable.filter((c) => candidateChannels.includes(c.id));
+
+      // The session may have been seeded from messages_recent, which only
+      // stores the target's messages — the partner side of any reply pair
+      // is missing. Pull the partner's stored messages in the candidate
+      // channels into the session so the matcher below can find pairs
+      // without round-tripping to Discord. (Opted-out partners aren't in
+      // the table by design; for those we fall through to Discord deepen
+      // and respect that they may simply not be reachable.)
+      const partnerSeed = getRecentMessagesByAuthorInChannels(
+        guild.id,
+        partnerId,
+        candidateChannels,
+        Date.now() - REPLY_CHAIN_SEED_WINDOW_MS,
+      );
+      const seedByChannel = new Map<string, CachedMessage[]>();
+      for (const m of partnerSeed) {
+        const list = seedByChannel.get(m.channelId) ?? [];
+        list.push(m);
+        seedByChannel.set(m.channelId, list);
+      }
+      for (const [chId, msgs] of seedByChannel) {
+        session.appendBatch(chId, msgs, false);
+      }
 
       const involvesBoth = (m: CachedMessage) => {
         const isFromTarget = m.authorId === session.targetUserId;

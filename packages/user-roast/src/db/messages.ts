@@ -88,6 +88,28 @@ export function deleteMessagesForUser(authorId: string, guildId: string): number
   return Number(res.changes);
 }
 
+interface MessagesRecentRow {
+  message_id: string;
+  channel_id: string;
+  author_id: string;
+  created_at: number;
+  content: string;
+  is_reply: number;
+  reply_to_id: string | null;
+}
+
+function rowToCachedMessage(r: MessagesRecentRow): CachedMessage {
+  return {
+    id: r.message_id,
+    channelId: r.channel_id,
+    authorId: r.author_id,
+    createdAt: r.created_at,
+    content: r.content,
+    isReply: r.is_reply === 1,
+    replyToId: r.reply_to_id,
+  };
+}
+
 /**
  * Roast-hot-path read: every message the target authored in the guild since
  * `sinceMs`, newest first, capped at `limit`. Returned as `CachedMessage`
@@ -109,25 +131,44 @@ export function getRecentTargetMessages(
         ORDER BY created_at DESC
         LIMIT ?`,
     )
-    .all(guildId, targetUserId, sinceMs, limit) as Array<{
-    message_id: string;
-    channel_id: string;
-    author_id: string;
-    created_at: number;
-    content: string;
-    is_reply: number;
-    reply_to_id: string | null;
-  }>;
+    .all(guildId, targetUserId, sinceMs, limit) as MessagesRecentRow[];
 
-  return rows.map((r) => ({
-    id: r.message_id,
-    channelId: r.channel_id,
-    authorId: r.author_id,
-    createdAt: r.created_at,
-    content: r.content,
-    isReply: r.is_reply === 1,
-    replyToId: r.reply_to_id,
-  }));
+  return rows.map(rowToCachedMessage);
+}
+
+/**
+ * Pull a specific (non-target) author's recent messages, scoped to a set of
+ * channel IDs. Used by the reply-chain tool: when the session was seeded
+ * from messages_recent it only contains the target's messages, so the
+ * partner side of a reply pair is missing. This bulk-loads the partner's
+ * stored text in the relevant channels so reply pairing can succeed without
+ * a Discord round-trip. Empty channel list short-circuits.
+ */
+export function getRecentMessagesByAuthorInChannels(
+  guildId: string,
+  authorId: string,
+  channelIds: string[],
+  sinceMs: number,
+  limit = 500,
+): CachedMessage[] {
+  if (channelIds.length === 0) return [];
+  const db = getDb();
+  const placeholders = channelIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT message_id, channel_id, author_id, created_at, content,
+              is_reply, reply_to_id
+         FROM messages_recent
+        WHERE guild_id = ?
+          AND author_id = ?
+          AND channel_id IN (${placeholders})
+          AND created_at >= ?
+        ORDER BY created_at DESC
+        LIMIT ?`,
+    )
+    .all(guildId, authorId, ...channelIds, sinceMs, limit) as MessagesRecentRow[];
+
+  return rows.map(rowToCachedMessage);
 }
 
 /**

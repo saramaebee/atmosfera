@@ -6,6 +6,7 @@ import {
   deleteMessageById,
   deleteMessagesByIds,
   deleteMessagesForUser,
+  getRecentMessagesByAuthorInChannels,
   getRecentTargetMessages,
   purgeMessagesOlderThan,
   recordMessage,
@@ -178,6 +179,39 @@ describe('getRecentTargetMessages', () => {
     recordMessage(makeRow({ messageId: 'c', guildId: 'g2' }));
     const got = getRecentTargetMessages('g1', 'u1', 0);
     expect(got.map((r) => r.id)).toEqual(['a']);
+  });
+});
+
+describe('getRecentMessagesByAuthorInChannels', () => {
+  beforeEach(() => {
+    freshDb();
+  });
+
+  it('returns the partner messages in the requested channels', () => {
+    recordMessage(makeRow({ messageId: 'p1', authorId: 'partner', channelId: 'c1' }));
+    recordMessage(makeRow({ messageId: 'p2', authorId: 'partner', channelId: 'c2' }));
+    recordMessage(makeRow({ messageId: 'p3', authorId: 'partner', channelId: 'c3' }));
+    const got = getRecentMessagesByAuthorInChannels('g1', 'partner', ['c1', 'c2'], 0);
+    expect(got.map((r) => r.id).sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('does not return the target user when called for a partner', () => {
+    recordMessage(makeRow({ messageId: 'target-msg', authorId: 'u1' }));
+    recordMessage(makeRow({ messageId: 'partner-msg', authorId: 'partner' }));
+    const got = getRecentMessagesByAuthorInChannels('g1', 'partner', ['c1'], 0);
+    expect(got.map((r) => r.id)).toEqual(['partner-msg']);
+  });
+
+  it('returns empty when channel list is empty (short-circuit)', () => {
+    recordMessage(makeRow({ authorId: 'partner' }));
+    expect(getRecentMessagesByAuthorInChannels('g1', 'partner', [], 0)).toEqual([]);
+  });
+
+  it('honors sinceMs and orders newest-first', () => {
+    recordMessage(makeRow({ messageId: 'old', authorId: 'partner', createdAt: 1000 }));
+    recordMessage(makeRow({ messageId: 'new', authorId: 'partner', createdAt: 3000 }));
+    const got = getRecentMessagesByAuthorInChannels('g1', 'partner', ['c1'], 2000);
+    expect(got.map((r) => r.id)).toEqual(['new']);
   });
 });
 
