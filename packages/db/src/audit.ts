@@ -63,7 +63,9 @@ export function listAuditEvents(db: Db, filter: ListAuditEventsFilter): AuditLog
 export function parseAuditMetadata(row: AuditLogRow): Record<string, unknown> | null {
   if (!row.metadata) return null;
   try {
-    return JSON.parse(row.metadata) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(row.metadata);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
   } catch {
     return null;
   }
