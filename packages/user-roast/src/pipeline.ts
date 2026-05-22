@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { getEnv } from '@atmosfera/config';
 import type { Guild, GuildMember } from 'discord.js';
 import { getRecentRoastsForTarget, recordRoast } from './db/roastHistory';
-import { fetchChannelPage, readableTextChannels } from './discordFetch';
 import { type Fingerprint, buildFingerprint } from './fingerprint';
 import { type Hypothesis, generateHypotheses } from './hypothesize';
 import { RoastSession } from './sessionCache';
@@ -91,20 +90,7 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
       }
     })();
 
-    let sampleMessages = session.allTargetMessages().slice(0, 30);
-    if (sampleMessages.length < 10 && fingerprint.topChannels.length > 0) {
-      const topChannel = fingerprint.topChannels[0]!;
-      const channel = readableTextChannels(guild).find((c) => c.id === topChannel.channelId);
-      if (channel) {
-        try {
-          const res = await fetchChannelPage(channel, { limit: 100 });
-          session.appendBatch(channel.id, res.messages, res.exhausted);
-          sampleMessages = session.allTargetMessages().slice(0, 30);
-        } catch {
-          // ignore
-        }
-      }
-    }
+    const sampleMessages = session.allTargetMessages().slice(0, 30);
 
     if (timeoutHandle.timedOut) throw new Error('Roast timed out before hypothesis');
 

@@ -101,6 +101,48 @@ export async function parallelProbe(params: {
 }
 
 /**
+ * Time-bounded parallel probe. For each channel, pages back until the oldest
+ * message in the latest page is older than `cutoffMs`, the channel is
+ * exhausted, or the session fetch budget is hit. Used to gather the past
+ * week's worth of messages per channel for roast synthesis, regardless of
+ * how chatty the channel is.
+ */
+export async function parallelProbeUntil(params: {
+  guild: Guild;
+  channels: GuildTextBasedChannel[];
+  cutoffMs: number;
+  session: RoastSession;
+  /** Hard cap on Discord pages fetched per channel. Defaults to 10 (≈1000 msgs). */
+  maxPagesPerChannel?: number;
+}): Promise<void> {
+  const { channels, cutoffMs, session, maxPagesPerChannel = 10 } = params;
+  if (session.budgetRemaining() === 0) return;
+
+  const tasks = channels.map(async (channel) => {
+    let beforeId: Snowflake | undefined;
+    for (let page = 0; page < maxPagesPerChannel; page++) {
+      if (session.budgetRemaining() === 0) return;
+      try {
+        const res = await fetchChannelPage(channel, { beforeId });
+        if (res.messages.length === 0) return;
+        session.appendBatch(channel.id, res.messages, res.exhausted);
+        if (res.exhausted) return;
+        // Discord returns messages newest-first; last entry is oldest in batch.
+        const oldest = res.messages[res.messages.length - 1];
+        if (!oldest) return;
+        if (oldest.createdAt < cutoffMs) return;
+        beforeId = oldest.id;
+      } catch (err) {
+        console.warn(`[roast] probeUntil fetch failed for ${channel.id}:`, err);
+        return;
+      }
+    }
+  });
+
+  await Promise.all(tasks);
+}
+
+/**
  * Paginate further back in a single channel until matchPredicate has matchTarget
  * hits, the channel is exhausted, or fetch budget runs out.
  */
