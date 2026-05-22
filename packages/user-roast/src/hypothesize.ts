@@ -11,7 +11,7 @@ const HypothesisSchema = z.object({
     .array(
       z.object({
         title: z.string().min(3).max(120),
-        rationale: z.string().min(3).max(400),
+        rationale: z.string().min(3).max(800),
         searchHint: z.object({
           keyword: z.string().nullable().optional(),
           partnerUserId: z.string().nullable().optional(),
@@ -41,7 +41,8 @@ const HYPOTHESIS_RESPONSE_SCHEMA: Schema = {
           },
           rationale: {
             type: Type.STRING,
-            description: 'Why this is roast-worthy and what evidence to look for.',
+            description:
+              'Why this is roast-worthy and what evidence to look for. 1-3 sentences, ~600 characters max.',
           },
           searchHint: {
             type: Type.OBJECT,
