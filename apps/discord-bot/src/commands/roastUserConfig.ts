@@ -1,3 +1,4 @@
+import { recordAuditEvent } from '@atmosfera/db';
 import {
   OPTOUT_LOCK_MS,
   clearBrutalOptin,
@@ -8,7 +9,7 @@ import {
   setRoastOptedIn,
   setRoastOptedOut,
 } from '@atmosfera/user-roast';
-import { Command } from '@sapphire/framework';
+import { Command, container } from '@sapphire/framework';
 import { chatInputRegisterOptions } from '../lib/commandScope';
 import { sendConfirm } from '../lib/confirm';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
@@ -95,6 +96,14 @@ export class RoastUserConfigCommand extends Command {
     const enable = interaction.options.getBoolean('enable') ?? true;
     if (enable) {
       setBrutalOptin(interaction.user.id, guildId);
+      recordAuditEvent(container.db, {
+        guildId,
+        actorId: interaction.user.id,
+        eventType: 'roast.brutal.optin',
+        subjectType: 'user',
+        subjectId: interaction.user.id,
+        metadata: { via: 'slash' },
+      });
       await interaction.reply({
         content:
           "You've opted into brutal-mode roasts. Use `brutal:true` on `/roast user` to invoke. Opt out with `/roast-user-config brutal enable:false`.",
@@ -102,6 +111,14 @@ export class RoastUserConfigCommand extends Command {
       });
     } else {
       clearBrutalOptin(interaction.user.id, guildId);
+      recordAuditEvent(container.db, {
+        guildId,
+        actorId: interaction.user.id,
+        eventType: 'roast.brutal.optout',
+        subjectType: 'user',
+        subjectId: interaction.user.id,
+        metadata: { via: 'slash' },
+      });
       await interaction.reply({ content: 'Brutal mode opt-out recorded.', ephemeral: true });
     }
 
@@ -159,6 +176,14 @@ export class RoastUserConfigCommand extends Command {
       }
 
       setRoastOptedOut(userId, guildId);
+      recordAuditEvent(container.db, {
+        guildId,
+        actorId: userId,
+        eventType: 'roast.optout.set',
+        subjectType: 'user',
+        subjectId: userId,
+        metadata: { via: 'slash' },
+      });
       await interaction.followUp({
         content:
           "You're opted out. Re-enable with `/roast-user-config participation enable:true` (30-day lock-in).",
@@ -202,6 +227,14 @@ export class RoastUserConfigCommand extends Command {
 
     setRoastOptedIn(userId, guildId, OPTOUT_LOCK_MS);
     const lockedUntil = Date.now() + OPTOUT_LOCK_MS;
+    recordAuditEvent(container.db, {
+      guildId,
+      actorId: userId,
+      eventType: 'roast.optout.clear',
+      subjectType: 'user',
+      subjectId: userId,
+      metadata: { via: 'slash', locks_until: lockedUntil },
+    });
     await interaction.followUp({
       content: `You're back in. You can't opt out again until <t:${Math.floor(lockedUntil / 1000)}:F>.`,
       ephemeral: true,

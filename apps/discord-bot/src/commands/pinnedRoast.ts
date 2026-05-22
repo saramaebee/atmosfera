@@ -1,3 +1,4 @@
+import { recordAuditEvent } from '@atmosfera/db';
 import {
   type PinnedRoast,
   deletePinnedRoast,
@@ -6,7 +7,7 @@ import {
   searchPinnedRoastsForUser,
   shortId,
 } from '@atmosfera/user-roast';
-import { Command } from '@sapphire/framework';
+import { Command, container } from '@sapphire/framework';
 import { EmbedBuilder } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
@@ -144,6 +145,16 @@ export class PinnedRoastCommand extends Command {
       case 'delete': {
         const id = interaction.options.getString('id', true);
         const ok = deletePinnedRoast(guildId, userId, id);
+        if (ok) {
+          recordAuditEvent(container.db, {
+            guildId,
+            actorId: userId,
+            eventType: 'roast.pin.delete',
+            subjectType: 'roast',
+            subjectId: id,
+            metadata: { via: 'slash' },
+          });
+        }
         await interaction.reply({
           content: ok ? `🗑️ Deleted pin \`${id}\`.` : notFoundMessage(id),
           ephemeral: true,

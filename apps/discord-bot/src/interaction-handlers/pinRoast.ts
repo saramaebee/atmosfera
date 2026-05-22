@@ -1,5 +1,11 @@
+import { recordAuditEvent } from '@atmosfera/db';
 import { getRoastHistoryById, pickZinger, pinRoast, shortId } from '@atmosfera/user-roast';
-import { InteractionHandler, InteractionHandlerTypes, type Option } from '@sapphire/framework';
+import {
+  InteractionHandler,
+  InteractionHandlerTypes,
+  type Option,
+  container,
+} from '@sapphire/framework';
 import {
   type ActionRow,
   ActionRowBuilder,
@@ -81,6 +87,20 @@ export class PinRoastHandler extends InteractionHandler {
       });
       return;
     }
+
+    recordAuditEvent(container.db, {
+      guildId: history.guildId,
+      actorId: interaction.user.id,
+      eventType: 'roast.pin.create',
+      subjectType: 'roast',
+      subjectId: invocationId,
+      metadata: {
+        via: 'reaction',
+        targetId: history.targetId,
+        invokerId: history.invokerId,
+        tone: history.tone,
+      },
+    });
 
     const disabledRow = disablePinButton(firstActionRow(interaction.message.components));
     if (disabledRow) {
