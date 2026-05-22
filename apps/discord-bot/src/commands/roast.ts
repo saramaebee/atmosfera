@@ -1,5 +1,6 @@
 import { BlockedBySafetyError } from '@atmosfera/gemini';
 import {
+  type RoastLength,
   type RoastTone,
   getGuildConfig,
   getRoastOptoutState,
@@ -52,6 +53,17 @@ export class RoastCommand extends Command {
                 .setName('brutal')
                 .setDescription('Brutal tone (requires target to have opted in).')
                 .setRequired(false),
+            )
+            .addStringOption((o) =>
+              o
+                .setName('length')
+                .setDescription('How long the roast should be. Default: short.')
+                .setRequired(false)
+                .addChoices(
+                  { name: 'short (2-3 sentences)', value: 'short' },
+                  { name: 'medium (4-6 sentences)', value: 'medium' },
+                  { name: 'long (a full paragraph)', value: 'long' },
+                ),
             ),
           SCOPE,
         ),
@@ -76,6 +88,7 @@ export class RoastCommand extends Command {
 
     const targetUser = interaction.options.getUser('user', true);
     const brutal = interaction.options.getBoolean('brutal') ?? false;
+    const length = (interaction.options.getString('length') as RoastLength | null) ?? 'short';
     const invokerMember = interaction.member as GuildMember | null;
     if (!invokerMember) {
       await interaction.reply({ content: 'Could not resolve invoker.', ephemeral: true });
@@ -124,6 +137,7 @@ export class RoastCommand extends Command {
         target: targetMember,
         invoker: invokerMember,
         tone: toneCheck.tone,
+        length,
       });
 
       await sendUserRoastPreview({

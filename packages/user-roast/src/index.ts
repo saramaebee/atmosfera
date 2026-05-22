@@ -3,7 +3,12 @@ export * from './sessionCache';
 export * from './discordFetch';
 export * from './fingerprint';
 export * from './hypothesize';
-export { synthesizeRoast, type RoastResult, type RoastTone } from './synthesize';
+export {
+  synthesizeRoast,
+  type RoastResult,
+  type RoastTone,
+  type RoastLength,
+} from './synthesize';
 export { runRoast, type RoastInput, type RoastOutput } from './pipeline';
 export { buildRoastTools } from './tools';
 export { pickZinger } from './zingers';

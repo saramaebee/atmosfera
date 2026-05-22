@@ -6,7 +6,7 @@ import { fetchChannelPage, readableTextChannels } from './discordFetch';
 import { type Fingerprint, buildFingerprint } from './fingerprint';
 import { type Hypothesis, generateHypotheses } from './hypothesize';
 import { RoastSession } from './sessionCache';
-import { type RoastResult, type RoastTone, synthesizeRoast } from './synthesize';
+import { type RoastLength, type RoastResult, type RoastTone, synthesizeRoast } from './synthesize';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -42,6 +42,7 @@ export interface RoastInput {
   target: GuildMember;
   invoker: GuildMember;
   tone: RoastTone;
+  length: RoastLength;
 }
 
 export interface RoastOutput {
@@ -53,7 +54,7 @@ export interface RoastOutput {
 }
 
 export async function runRoast(input: RoastInput): Promise<RoastOutput> {
-  const { guild, target, invoker, tone } = input;
+  const { guild, target, invoker, tone, length } = input;
   const env = getEnv();
   const invocationId = randomUUID();
 
@@ -123,6 +124,7 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
       hypotheses,
       targetDisplay: target.displayName,
       tone,
+      length,
       priorRoasts,
     });
 
