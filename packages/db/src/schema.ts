@@ -119,6 +119,33 @@ export const activityRecent = sqliteTable(
   ],
 );
 
+/**
+ * Verbatim message text for the roast hot-path. 7-day rolling retention.
+ * Maintained in lockstep with Discord state: writes on MessageCreate (for
+ * non-opted-out users in indexing-enabled guilds), UPDATE on MessageUpdate,
+ * DELETE on MessageDelete / MessageDeleteBulk, and eager wipe-by-user on
+ * roast opt-out. If you add a column here, update
+ * packages/user-roast/src/privacy/policy.ts and PRIVACY.md.
+ */
+export const messagesRecent = sqliteTable(
+  'messages_recent',
+  {
+    messageId: text('message_id').primaryKey(),
+    guildId: text('guild_id').notNull(),
+    channelId: text('channel_id').notNull(),
+    authorId: text('author_id').notNull(),
+    content: text('content').notNull(),
+    createdAt: integer('created_at').notNull(),
+    editedAt: integer('edited_at'),
+    isReply: integer('is_reply').notNull().default(0),
+    replyToId: text('reply_to_id'),
+  },
+  (t) => [
+    index('idx_messages_recent_guild_author_time').on(t.guildId, t.authorId, t.createdAt),
+    index('idx_messages_recent_created').on(t.createdAt),
+  ],
+);
+
 /** Reply/mention edges between users. 30d retention. */
 export const interactions = sqliteTable(
   'interactions',
