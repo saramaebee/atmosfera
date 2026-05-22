@@ -19,7 +19,7 @@ jobs:
         with:
           bun-version: '1.3.1'
       - run: bun install
-      - run: bun x tsc --noEmit -p tsconfig.json
+      - run: bun run typecheck
       - run: bun x biome check .
       - run: bun test
 
@@ -42,6 +42,13 @@ jobs:
             git reset --hard origin/main
             "$HOME/.bun/bin/bun" install --production
             sudo /bin/systemctl restart atmosfera
+            # atmosfera-web is optional — only restart if it's installed.
+            if systemctl list-unit-files atmosfera-web.service >/dev/null 2>&1; then
+              sudo /bin/systemctl restart atmosfera-web
+            fi
             # Brief health check: process should still be up 5 seconds later
             sleep 5
             sudo /bin/systemctl status atmosfera --no-pager | head -10
+            if systemctl list-unit-files atmosfera-web.service >/dev/null 2>&1; then
+              sudo /bin/systemctl status atmosfera-web --no-pager | head -10
+            fi
