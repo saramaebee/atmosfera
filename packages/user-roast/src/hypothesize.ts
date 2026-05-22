@@ -47,12 +47,13 @@ const HYPOTHESIS_RESPONSE_SCHEMA: Schema = {
           searchHint: {
             type: Type.OBJECT,
             description:
-              'Hints for the next phase. At least one of keyword, partnerUserId, or channelId should be set.',
+              'Hints for the next phase. **Prefer setting `keyword`** — content angles produce funnier roasts than pure pattern angles, and at least half of the angles you return must set `keyword`. Set `partnerUserId` or `channelId` only when the angle is genuinely about who they talk to or where they hang out, not just to scope the search.',
             properties: {
               keyword: {
                 type: Type.STRING,
                 nullable: true,
-                description: 'Keyword to grep their messages for.',
+                description:
+                  "Specific term to grep the target's messages for. Pick a word distinctive to them — not a generic word like 'the' or 'i'. This is the field that turns an angle into something verifiable.",
               },
               partnerUserId: {
                 type: Type.STRING,
@@ -81,16 +82,20 @@ Your job is to identify 3-5 specific angles worth digging into for a roast. Each
 
 Output strict JSON matching the schema. No prose around it.
 
-Good angles (specific, testable):
-- "Talks about the same TV show in every channel — search 'severance'"
-- "Replies to @alice constantly, never starts conversations with anyone else"
-- "Every message starts with 'lol' or 'lmao' — search 'lol'"
-- "Posting binges between 2-5am UTC every day this week"
+**Balance pattern angles with content angles.** "Patterns" = channel choice, posting hours, reply targets, partner identity. "Content" = things they actually say — recurring words, weird hot takes, specific subjects, distinctive phrasings. AT LEAST HALF of the angles you propose MUST be content-driven and MUST set \`searchHint.keyword\` to a specific term you'd grep their messages for. A list of angles that's all "they post at 3am to alice in #general" is a worse list than one that mixes patterns with "they keep typing 'literally' as filler".
 
-Bad angles (generic, untestable):
+Good angles (specific, testable, mixing pattern + content):
+- "Keeps using the word 'literally' as filler — search 'literally'"
+- "Posts essay-length hot takes about a specific TV show — search 'severance'"
+- "Replies to @alice constantly with monosyllabic 'yeah's — search keyword 'yeah' scoped to that partner"
+- "Every message opens with 'lol' or 'lmao' — search 'lol'"
+- "Posting binges between 2-5am UTC every day this week" (one pattern angle is fine, not the whole list)
+
+Bad angles (generic, untestable, or pattern-only):
 - "Posts a lot"
 - "Likes to use emojis"
 - "Funny person"
+- "Only posts in one channel" — by itself this is just describing the room.
 
 Also: do not propose channel-monoculture angles ("only posts in #general", "ignores other channels") unless the fingerprint shows the server has many channels they're actively avoiding. A "1 of 1 channels" server makes that angle nonsense.`;
 

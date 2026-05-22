@@ -11,13 +11,25 @@ import { buildRoastTools } from './tools';
 export type RoastTone = 'sharp' | 'brutal';
 export type RoastLength = 'short' | 'medium' | 'long';
 
+const VERBATIM_QUOTE_RULE = `Every quoted snippet MUST be **verbatim** text from a message the target actually sent — exactly as it appears in the sample or in a tool result. Wrap quotes in single quotes. Do NOT quote concepts ('replies', 'that one channel'), channel names, paraphrases, or your own observations. If you can't pull a real quote, do not quote anything — drop the quote requirement before you fabricate one.`;
+
 const LENGTH_GUIDANCE: Record<RoastLength, string> = {
-  short:
-    '- Be 2-3 sentences. Tight, punchy, one clear angle.\n- Cite at least ONE quoted snippet (use single quotes around exact phrases from their messages).',
-  medium:
-    '- Be 4-6 sentences. Comedy roast, not an essay.\n- Cite at least TWO actual quoted snippets (use single quotes around exact phrases from their messages).\n- Hit at least TWO distinct angles from the hypothesis list.',
-  long: '- Be a single tight paragraph, roughly 8-12 sentences. Comedy roast, not an essay — pacing still matters.\n- Cite at least TWO actual quoted snippets (use single quotes around exact phrases from their messages).\n- Hit at least TWO distinct angles from the hypothesis list.',
+  short: `- Be 2-3 sentences. Tight, punchy, one clear angle.
+- Cite at least ONE verbatim quote.
+- ${VERBATIM_QUOTE_RULE}`,
+  medium: `- Be 4-6 sentences. Comedy roast, not an essay.
+- Cite at least TWO distinct verbatim quotes.
+- Hit at least TWO distinct angles from the hypothesis list.
+- ${VERBATIM_QUOTE_RULE}`,
+  long: `- Be roughly 8-12 sentences total. Break into 2-3 short paragraphs — single-wall-of-text reads poorly in Discord.
+- Cite at least THREE distinct verbatim quotes.
+- Hit at least THREE distinct angles from the hypothesis list.
+- ${VERBATIM_QUOTE_RULE}`,
 };
+
+const PATTERN_VS_CONTENT_RULE = `Pattern angles — channel choice, posting hours, reply behavior, partner identity — can be at most ONE of the angles you hit in the final roast. At least one other angle MUST engage with the substance of what they actually said. A roast that's entirely "you only post in #X at hour Y to user Z" is a worse roast than one that picks one quirky pattern AND quotes them being weird about something specific.`;
+
+const MANDATORY_EVIDENCE_RULE = `Before writing the final roast you MUST call \`searchTargetMessagesContaining\` at least once to pull real message content — unless the sample already contains 5 or more substantive messages (i.e. messages with actual content, not just 'lol', 'lmao', 'yeah', or single emojis). 'Substantive' means there's something quote-worthy in there. If you skip this, the roast will fall back on metadata and read as cold.`;
 
 /**
  * Per-tone policy applied to the final Gemini response. Gemini's server-side
@@ -72,11 +84,14 @@ const SYSTEM_INSTRUCTION = (
   fingerprint: Fingerprint,
 ) => `You are roasting ${targetDisplay} based on real Discord behavior.
 
-You have tools to dig up evidence. Use them. Aim for 1-3 tool calls total before producing the final roast. Don't tool-call forever.
+You have tools to dig up evidence. Use them — content-light roasts read flat. Aim for 1-3 tool calls total before producing the final roast.
+
+${MANDATORY_EVIDENCE_RULE}
 
 When you produce the FINAL ROAST, it must:
 ${LENGTH_GUIDANCE[length]}
 - Open with a punch, not a preamble.
+- ${PATTERN_VS_CONTENT_RULE}
 - If the evidence clearly identifies a specific person they interact with, name them by display name. Otherwise omit the partner reference entirely. NEVER write template placeholders like "[insert name]" or "[partner]" — if you don't have a real name, just don't mention anyone.
 - Channel-choice jokes ("only posts in #general", "ignores every other channel") only land when the server actually has many channels they're avoiding. If the fingerprint shows the server has 1-2 channels total, do NOT use channel monoculture as an angle — it's just describing the room.
 

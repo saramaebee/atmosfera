@@ -49,6 +49,9 @@ const envSchema = z.object({
   ACTIVITY_HOURLY_RETENTION_DAYS: intFromEnv(30),
   INTERACTIONS_RETENTION_DAYS: intFromEnv(30),
   ROAST_HISTORY_RETENTION_DAYS: intFromEnv(30),
+  // Verbatim message text for the roast hot-path. Hard cap, no opt-in for
+  // longer retention. Defaults to 7 days; minimum 1 day.
+  MESSAGE_CONTENT_RETENTION_DAYS: intFromEnv(7),
 
   // Internal bot↔web HTTP API. Optional; if INTERNAL_API_TOKEN is unset the
   // bot does not start the server and the web app hides owner debug pages.

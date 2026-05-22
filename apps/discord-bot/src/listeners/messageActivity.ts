@@ -1,8 +1,10 @@
 import {
   type InteractionEdge,
   getGuildConfig,
+  getRoastOptoutState,
   recordActivity,
   recordInteractions,
+  recordMessage,
 } from '@atmosfera/user-roast';
 import { Listener } from '@sapphire/framework';
 import { Events, type Message, type User } from 'discord.js';
@@ -37,6 +39,10 @@ export class MessageActivityListener extends Listener<typeof Events.MessageCreat
     const channelId = message.channelId;
     const authorId = message.author.id;
     const createdAt = message.createdTimestamp;
+
+    // Honor roast opt-out at the indexing boundary, not just at roast-time:
+    // opted-out users get nothing stored — stats or content.
+    if (getRoastOptoutState(authorId, guildId).optedOut) return;
 
     // Dedup: reply target appears in mentions too; count once as reply.
     let repliedToId: string | null = null;
@@ -95,5 +101,22 @@ export class MessageActivityListener extends Listener<typeof Events.MessageCreat
     });
 
     recordInteractions(edges);
+
+    // Only store rows for content-bearing messages. Attachment-only or
+    // sticker-only posts contribute to stats but have no text to feed into
+    // roast synthesis, so skip the messages_recent row.
+    const content = message.content ?? '';
+    if (content.length > 0) {
+      recordMessage({
+        messageId: message.id,
+        guildId,
+        channelId,
+        authorId,
+        content,
+        createdAt,
+        isReply: repliedToId !== null,
+        replyToId: repliedToId,
+      });
+    }
   }
 }

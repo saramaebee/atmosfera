@@ -36,6 +36,13 @@
       "when": 1779415931843,
       "tag": "0004_web_app",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779468266799,
+      "tag": "0005_messages_recent",
+      "breakpoints": true
     }
   ]
 }

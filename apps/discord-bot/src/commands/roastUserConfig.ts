@@ -2,6 +2,7 @@ import { recordAuditEvent } from '@atmosfera/db';
 import {
   OPTOUT_LOCK_MS,
   clearBrutalOptin,
+  deleteMessagesForUser,
   getGuildConfig,
   getRoastOptoutState,
   hasBrutalOptin,
@@ -176,13 +177,14 @@ export class RoastUserConfigCommand extends Command {
       }
 
       setRoastOptedOut(userId, guildId);
+      const purgedRows = deleteMessagesForUser(userId, guildId);
       recordAuditEvent(container.db, {
         guildId,
         actorId: userId,
         eventType: 'roast.optout.set',
         subjectType: 'user',
         subjectId: userId,
-        metadata: { via: 'slash' },
+        metadata: { via: 'slash', purgedMessageRows: purgedRows },
       });
       await interaction.followUp({
         content:
