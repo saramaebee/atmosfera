@@ -21,9 +21,13 @@ export class RoastCommand extends Command {
       ...options,
       name: 'roast',
       description: 'Roast a server member based on their message patterns.',
+      // Sapphire checks every listed perm against the *invocation channel* —
+      // listing SendMessagesInThreads would force admins to grant it even in
+      // regular text channels where it's irrelevant. Thread invocations
+      // without that perm will get a Discord API error at reply time instead
+      // of a clean precondition message; that's the tradeoff.
       requiredClientPermissions: [
         'SendMessages',
-        'SendMessagesInThreads',
         'EmbedLinks',
         'ViewChannel',
         'ReadMessageHistory',
