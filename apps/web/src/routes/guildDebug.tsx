@@ -3,10 +3,12 @@ import {
   type BotChannelInfo,
   type BotChannelPerms,
   type BotChannelsResponse,
+  type BotCommandInfo,
+  type BotCommandsResponse,
   isInternalApiEnabled,
 } from '@atmosfera/config';
 import { Hono } from 'hono';
-import { fetchBotChannels } from '../lib/botApi';
+import { fetchBotChannels, fetchBotCommands } from '../lib/botApi';
 import { resolveGuild } from '../middleware/requireGuild';
 import type { AppEnv } from '../types';
 import { GuildSidebar } from '../views/components';
@@ -35,12 +37,18 @@ guildDebugRoutes.get('/:guildId/debug/channels', async (c) => {
   const { session, guild, role } = r;
   if (!session.isOwner) return c.text('Forbidden', 403);
 
-  const data = isInternalApiEnabled()
-    ? await fetchBotChannels(guild.guildId)
-    : ({
-        kind: 'unavailable',
-        message: 'INTERNAL_API_TOKEN is not configured on the web app',
-      } satisfies BotChannelsResponse);
+  const [data, commandsData] = isInternalApiEnabled()
+    ? await Promise.all([fetchBotChannels(guild.guildId), fetchBotCommands(guild.guildId)])
+    : [
+        {
+          kind: 'unavailable',
+          message: 'INTERNAL_API_TOKEN is not configured on the web app',
+        } satisfies BotChannelsResponse,
+        {
+          kind: 'unavailable',
+          message: 'INTERNAL_API_TOKEN is not configured on the web app',
+        } satisfies BotCommandsResponse,
+      ];
 
   const sidebar = (
     <GuildSidebar
@@ -69,6 +77,7 @@ guildDebugRoutes.get('/:guildId/debug/channels', async (c) => {
         </div>
       </div>
 
+      <CommandsSection data={commandsData} />
       <ChannelDebugBody data={data} />
     </Layout>,
   );
@@ -181,6 +190,137 @@ function CategoryTable(props: { category: BotCategoryInfo | null; channels: BotC
       )}
     </div>
   );
+}
+
+function CommandsSection(props: { data: BotCommandsResponse }) {
+  const { data } = props;
+  if (data.kind !== 'ok') {
+    return (
+      <div class="card">
+        <div class="card-header">
+          <h2 style="margin:0;">Registered application commands</h2>
+        </div>
+        <p class="muted" style="margin:0;">
+          {titleForError(data.kind)}: {data.message}
+        </p>
+        {data.kind === 'not_cached' ? (
+          <p class="dim" style="margin:8px 0 0;">
+            <code>client.application</code> isn't ready yet — try again in a moment.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const allCommands = [...data.global, ...data.guildScoped];
+  const hasExplain = allCommands.some((c) => c.name === 'Explain' && c.kind === 'message_context');
+
+  return (
+    <div class="card">
+      <div class="card-header">
+        <h2 style="margin:0;">Registered application commands</h2>
+        <span class="dim mono">
+          {data.global.length} global · {data.guildScoped.length} guild-scoped
+        </span>
+      </div>
+      <p class="muted" style="margin:0 0 12px;">
+        What Discord currently has on file for this bot. If a command isn't in this list, it has not
+        been registered yet — usually that means the bot hasn't been restarted with the latest code,
+        or a global registration is still propagating (can take up to ~1 hour).
+      </p>
+
+      <div
+        class={`card-tight ${hasExplain ? '' : 'empty'}`}
+        style="margin:0 0 12px;padding:8px 12px;"
+      >
+        <strong>/Explain (message context-menu):</strong>{' '}
+        {hasExplain ? (
+          <>
+            <span class="badge badge-allow">registered</span> · Right-click any message and look
+            under <em>Apps</em>. (You may need to restart your Discord client once if it still
+            doesn't appear.)
+          </>
+        ) : (
+          <>
+            <span class="badge badge-deny">not found</span> · Bot hasn't registered this command
+            yet. Restart the bot, or wait for global propagation.
+          </>
+        )}
+      </div>
+
+      {data.global.length > 0 ? <CommandsTable label="Global" rows={data.global} /> : null}
+      {data.guildScoped.length > 0 ? (
+        <CommandsTable label="Guild-scoped" rows={data.guildScoped} />
+      ) : null}
+    </div>
+  );
+}
+
+function CommandsTable(props: { label: string; rows: BotCommandInfo[] }) {
+  return (
+    <>
+      <h3 style="margin:8px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;">
+        {props.label}
+      </h3>
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Kind</th>
+            <th>Default member perms</th>
+            <th>DMs?</th>
+            <th>ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {props.rows.map((cmd) => (
+            <tr>
+              <td>
+                <span class="mono">
+                  {cmd.kind === 'chat_input' ? '/' : ''}
+                  {cmd.name}
+                </span>
+              </td>
+              <td>
+                <span class="badge">{labelKind(cmd.kind)}</span>
+              </td>
+              <td
+                class="mono"
+                title="Decimal bitfield; null = no Discord-side gate (open to everyone in the picker)"
+              >
+                {cmd.defaultMemberPermissions ?? <span class="dim">—</span>}
+              </td>
+              <td>
+                {cmd.dmPermission == null ? (
+                  <span class="dim">—</span>
+                ) : (
+                  <span class={`badge ${cmd.dmPermission ? 'badge-allow' : 'badge-deny'}`}>
+                    {cmd.dmPermission ? 'yes' : 'no'}
+                  </span>
+                )}
+              </td>
+              <td class="mono dim" style="font-size:11px;">
+                {cmd.id}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function labelKind(kind: BotCommandInfo['kind']): string {
+  switch (kind) {
+    case 'chat_input':
+      return 'slash';
+    case 'user_context':
+      return 'user-menu';
+    case 'message_context':
+      return 'message-menu';
+    case 'unknown':
+      return 'unknown';
+  }
 }
 
 function titleForError(kind: 'not_found' | 'not_cached' | 'unauthorized' | 'unavailable'): string {
