@@ -1,6 +1,11 @@
 # atmosfera
 
-A Discord bot that turns 15 years of hourly weather data into climate climatology charts for any city — temperature heatmaps, muggy probability, wet-day probability — plus AI-generated witty roasts of the climates it surfaces.
+A Discord bot with two halves:
+
+- **Climate.** 15 years of hourly weather data turned into climatology charts for any city — temperature heatmaps, muggy probability, wet-day probability, two-city comparisons — with optional AI-generated roasts of the climate.
+- **Server-member roasting.** Opt-in indexing of message activity patterns (length, timing, channels, reply graph), turned into AI-generated roasts of a member based on how they actually behave in chat. Privacy controls (`/privacy`, per-user opt-out, brutal-tone opt-in) and per-guild RBAC (`/permissions`) live alongside it.
+
+Climate data is sourced from [Open-Meteo](https://open-meteo.com) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ![Buenos Aires vs Reykjavík temperature climatology](docs/examples/heatmap-buenos-aires-vs-reykjavik.png)
 
@@ -14,13 +19,24 @@ The muggy-probability comparison: Tokyo's monsoon season hits 100% in early Augu
 
 ## Slash commands
 
+**Climate:**
+
 | Command | What it does |
 | --- | --- |
 | `/climate <city>` | Temperature heatmap |
 | `/muggy <city>` | Muggy probability (dew point ≥ 18°C) |
 | `/wet <city>` | Wet-day probability (≥ 1 mm of rain) |
 | `/compare <city_a> <city_b> [chart]` | Both cities side-by-side. `chart` choices: `heatmap`, `muggy`, `wetday`, `all` |
-| `/roast <city>` | AI-generated witty climate roast, no chart |
+
+**Server-member roasting** (admins enable indexing per guild via `/roast-setup`; users can opt out via `/privacy`):
+
+| Command | What it does |
+| --- | --- |
+| `/roast <user> [brutal] [length]` | Roast based on the target's message-activity patterns |
+| `/pinned-roast` | Pin / vote on roasts in a server gallery |
+| `/privacy` | View what's stored, opt out of indexing, view/export your data |
+| `/permissions` | Per-guild RBAC: grant/revoke command access for users or roles (admin) |
+| `/roast-setup`, `/roast-config`, `/roast-user-config`, `/roast-knobs` | Indexing toggle and per-guild knobs (admin) |
 
 Every chart command also accepts three optional roast options:
 
@@ -136,6 +152,8 @@ If you change smoothing, aggregation, or the cube schema:
 
 ---
 
-## License
+## License & attribution
 
-[Apache 2.0](LICENSE).
+Code is [Apache 2.0](LICENSE).
+
+Climate data — historical hourly archive and geocoding — comes from [Open-Meteo](https://open-meteo.com) under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/). The data is reused with modification: hourly observations are aggregated into 15-year climatologies, smoothed, and converted into chart imagery. Every chart message in Discord credits Open-Meteo in its footer.

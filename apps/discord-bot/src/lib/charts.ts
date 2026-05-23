@@ -21,6 +21,8 @@ import {
 export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
+const OPEN_METEO_ATTRIBUTION = 'Data: [Open-Meteo](https://open-meteo.com) · CC BY 4.0';
+
 export interface RenderRequest {
   command: CommandKind;
   cities: City[];
@@ -77,7 +79,9 @@ function buildWetBulbEmbed(items: { city: City; cube: ClimateCube }[]): EmbedBui
         inline: items.length > 1,
       })),
     )
-    .setFooter({ text: `Climatology ${first.cube.window.startYear}–${first.cube.window.endYear}` });
+    .setFooter({
+      text: `Climatology ${first.cube.window.startYear}–${first.cube.window.endYear} · Data: Open-Meteo (CC BY 4.0)`,
+    });
 }
 
 function slugify(s: string): string {
@@ -93,22 +97,23 @@ function citiesSlug(cities: City[]): string {
 
 function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): string {
   const window = `${cubes[0]!.window.startYear}–${cubes[0]!.window.endYear}`;
+  let head: string;
   if (command === 'compare') {
-    return `**${cityDisplayName(cities[0]!)}** vs **${cityDisplayName(cities[1]!)}** — climatology ${window}.`;
+    head = `**${cityDisplayName(cities[0]!)}** vs **${cityDisplayName(cities[1]!)}** — climatology ${window}.`;
+  } else if (command === 'muggy') {
+    head = `**${cityDisplayName(cities[0]!)}** — muggy probability (${window}).`;
+  } else if (command === 'wet') {
+    head = `**${cityDisplayName(cities[0]!)}** — wet-day probability (${window}).`;
+  } else {
+    head = `**${cityDisplayName(cities[0]!)}** — temperature climatology (${window}).`;
   }
-  if (command === 'muggy') {
-    return `**${cityDisplayName(cities[0]!)}** — muggy probability (${window}).`;
-  }
-  if (command === 'wet') {
-    return `**${cityDisplayName(cities[0]!)}** — wet-day probability (${window}).`;
-  }
-  return `**${cityDisplayName(cities[0]!)}** — temperature climatology (${window}).`;
+  return `${head}\n-# ${OPEN_METEO_ATTRIBUTION}`;
 }
 
 function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): string {
   const window = `climatology ${cubes[0]!.window.startYear}–${cubes[0]!.window.endYear}`;
   const cityList = cities.map((c) => cityDisplayName(c)).join(' vs ');
-  return `${roast}\n-# ${cityList} · ${window}`;
+  return `${roast}\n-# ${cityList} · ${window} · ${OPEN_METEO_ATTRIBUTION}`;
 }
 
 /**
