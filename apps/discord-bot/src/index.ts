@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dbPathFromUrl, getEnv, isInternalApiEnabled } from '@atmosfera/config';
 import { type Db, createDb, migrateDb } from '@atmosfera/db';
+import { setExplainDb } from '@atmosfera/explain';
 import { schedulePurge, setUserRoastDb } from '@atmosfera/user-roast';
 import {
   ApplicationCommandRegistries,
@@ -43,6 +44,7 @@ container.db = db;
 // user-roast carries its own raw-SQL queries (UNION-ALL aggregates, FTS5 MATCH);
 // hand it the underlying bun:sqlite client and start the retention purge loop.
 setUserRoastDb(db.$client);
+setExplainDb(db.$client);
 schedulePurge();
 
 const client = new SapphireClient({

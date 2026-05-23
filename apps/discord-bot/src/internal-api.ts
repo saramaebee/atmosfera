@@ -4,6 +4,8 @@ import {
   type BotChannelInfo,
   type BotChannelPerms,
   type BotChannelsResponse,
+  type BotRoleInfo,
+  type BotRolesResponse,
   getEnv,
 } from '@atmosfera/config';
 import type { SapphireClient } from '@sapphire/framework';
@@ -14,7 +16,8 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 
-const ROUTE = /^\/internal\/guilds\/(\d{17,20})\/channels$/;
+const CHANNELS_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/channels$/;
+const ROLES_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/roles$/;
 
 const TYPE_LABELS: Record<number, string> = {
   [ChannelType.GuildText]: 'text',
@@ -51,7 +54,7 @@ function computePerms(channel: GuildBasedChannel, me: GuildMember): BotChannelPe
   };
 }
 
-function json(body: BotChannelsResponse, status: number): Response {
+function json(body: BotChannelsResponse | BotRolesResponse, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -119,6 +122,27 @@ function buildChannelsResponse(client: SapphireClient, guildId: string): BotChan
   };
 }
 
+function buildRolesResponse(client: SapphireClient, guildId: string): BotRolesResponse {
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) {
+    return { kind: 'not_found', message: `bot is not in guild ${guildId}` };
+  }
+  const roles: BotRoleInfo[] = [];
+  for (const role of guild.roles.cache.values()) {
+    roles.push({
+      id: role.id,
+      name: role.name,
+      color: role.color,
+      position: role.position,
+      managed: role.managed,
+      everyone: role.id === guild.id,
+    });
+  }
+  // Highest position first — that's what users expect in a role picker.
+  roles.sort((a, b) => b.position - a.position);
+  return { kind: 'ok', guildId: guild.id, guildName: guild.name, roles };
+}
+
 export interface InternalApiServer {
   port: number;
   close: () => void;
@@ -144,14 +168,21 @@ export function startInternalApi(client: SapphireClient): InternalApiServer {
         return json({ kind: 'unauthorized', message: 'unauthorized' }, 401);
       }
 
-      const m = ROUTE.exec(url.pathname);
-      if (!m) {
-        return json({ kind: 'not_found', message: 'not found' }, 404);
+      const channelsMatch = CHANNELS_ROUTE.exec(url.pathname);
+      if (channelsMatch) {
+        const body = buildChannelsResponse(client, channelsMatch[1]);
+        const status = body.kind === 'ok' ? 200 : body.kind === 'not_cached' ? 503 : 404;
+        return json(body, status);
       }
 
-      const body = buildChannelsResponse(client, m[1]);
-      const status = body.kind === 'ok' ? 200 : body.kind === 'not_cached' ? 503 : 404;
-      return json(body, status);
+      const rolesMatch = ROLES_ROUTE.exec(url.pathname);
+      if (rolesMatch) {
+        const body = buildRolesResponse(client, rolesMatch[1]);
+        const status = body.kind === 'ok' ? 200 : 404;
+        return json(body, status);
+      }
+
+      return json({ kind: 'not_found', message: 'not found' }, 404);
     },
   });
 
