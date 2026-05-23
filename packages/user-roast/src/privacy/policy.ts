@@ -12,7 +12,7 @@
  * and bump PRIVACY_POLICY_VERSION. Keep PRIVACY.md in sync manually.
  */
 
-export const PRIVACY_POLICY_VERSION = '2026-05-22.6';
+export const PRIVACY_POLICY_VERSION = '2026-05-22.7';
 
 export const PRIVACY_SUMMARY = {
   thirdParties: [
@@ -26,6 +26,7 @@ export const PRIVACY_SUMMARY = {
     'Verbatim message text on guilds with `/roast-setup` enabled — **7 days rolling**. Edits are mirrored, deletes propagate within seconds, and users who opt out of `/roast` have their stored text purged immediately.',
     'Generated roast text + invocation metadata. Indefinite while pinned, 30-day otherwise.',
     'Pinned roasts the target explicitly saved, plus upvotes. Indefinite (user-controlled).',
+    'Roast decision traces (prompts sent, hypothesis JSON, tool-loop transcripts) for owner-only debugging. 30-day rolling — same window as the existing invocation metadata.',
     'Per-guild config flags, per-user opt-in / opt-out states.',
     'Command permission rules and the audit log (admin actions).',
     'See `/privacy data` for the message-data breakdown and `/privacy audit-log` for what we log about admin actions.',
@@ -62,6 +63,7 @@ export const PRIVACY_DATA = {
     'Per-message metadata, per-channel hourly counts, reply/mention edges: **30 days rolling**.',
     'Verbatim message text: **7 days rolling**. Tracks Discord state — edits update the row, deletes (single or bulk) drop the row.',
     'Roast invocation metadata: 30 days, unless the roast was pinned (then indefinite).',
+    "Roast decision traces — exact prompts the bot sent, hypothesis JSON, tool-loop transcripts (which messages were searched + what the tools returned), and effective pipeline tuning values. Owner-only, 30 days rolling. May embed snippets of the target's recent messages (same content the model saw to write the roast).",
     'Pinned roasts, opt-in/opt-out states, guild config: indefinite (under user control).',
   ],
 } as const;
@@ -73,9 +75,9 @@ export const PRIVACY_AUDIT = {
   ],
   whatLogged: [
     'Actor user ID (who took the action).',
-    'Event type (e.g. `permission.grant`, `roast.indexing.toggle`, `roast.config.update`).',
+    'Event type (e.g. `permission.grant`, `roast.indexing.toggle`, `roast.config.update`). `roast.config.update` with `metadata.kind = "knobs"` covers the per-guild roast-pipeline tuning overrides.',
     'Subject (the command or guild config the action affected).',
-    'Per-event metadata — for permission rules, the principal (role/user ID) and before/after effect; for config toggles, the before/after values.',
+    'Per-event metadata — for permission rules, the principal (role/user ID) and before/after effect; for config toggles and knob overrides, the before/after values.',
     'Timestamp.',
   ],
   notLogged: [

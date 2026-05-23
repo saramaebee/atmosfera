@@ -103,7 +103,16 @@ export interface GuildSidebarProps {
   guildName: string;
   iconHash: string | null;
   role: Role;
-  active: 'overview' | 'me' | 'audit' | 'config' | 'perms' | 'users' | 'debug';
+  active:
+    | 'overview'
+    | 'me'
+    | 'audit'
+    | 'config'
+    | 'perms'
+    | 'users'
+    | 'debug'
+    | 'debug-roasts'
+    | 'debug-roast-knobs';
 }
 
 export function GuildSidebar(props: GuildSidebarProps) {
@@ -161,6 +170,14 @@ export function GuildSidebar(props: GuildSidebarProps) {
           <a class={cls('debug')} href={`/g/${props.guildId}/debug/channels`}>
             <Icon.Layers />
             <span>Channels</span>
+          </a>
+          <a class={cls('debug-roasts')} href={`/g/${props.guildId}/debug/roasts`}>
+            <Icon.ScrollText />
+            <span>Roast traces</span>
+          </a>
+          <a class={cls('debug-roast-knobs')} href={`/g/${props.guildId}/debug/roast-knobs`}>
+            <Icon.Settings />
+            <span>Roast knobs</span>
           </a>
         </>
       ) : null}

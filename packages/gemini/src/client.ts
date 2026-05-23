@@ -128,6 +128,13 @@ export interface ToolLoopParams {
   safetyPolicy?: SafetyPolicy;
   /** Gemini 2.5 burns output tokens on thinking by default. 0 disables. */
   thinkingBudget?: number;
+  /**
+   * Soft floor on tool calls. When the model tries to finish (emits text with
+   * no function calls) and we haven't hit this floor yet, the loop injects a
+   * "you still have budget — make another concrete tool call" nudge and
+   * continues. Bounded by `maxIterations` either way. 0 = no floor.
+   */
+  minToolCalls?: number;
 }
 
 export interface ToolLoopResult {
@@ -164,6 +171,7 @@ export async function runToolLoop({
   safetySettings,
   safetyPolicy,
   thinkingBudget,
+  minToolCalls = 0,
 }: ToolLoopParams): Promise<ToolLoopResult> {
   const toolMap = new Map(tools.map((t) => [t.name, t]));
   const declarations = tools.map((t) => t.declaration);
@@ -194,6 +202,22 @@ export async function runToolLoop({
       checkGeminiBlock(response);
       if (safetyPolicy) {
         evaluateSafetyRatings(response.candidates?.[0]?.safetyRatings, safetyPolicy);
+      }
+      // Min-tool-calls soft floor: if the model wants to finish but hasn't
+      // gathered enough evidence yet, push it back into tool use. We only
+      // nudge when we still have iterations left to spend.
+      const remaining = maxIterations - iter - 1;
+      if (toolCalls.length < minToolCalls && remaining > 0) {
+        contents.push({ role: 'model', parts });
+        contents.push({
+          role: 'user',
+          parts: [
+            {
+              text: `You have ${remaining} tool call${remaining === 1 ? '' : 's'} of budget left and have only made ${toolCalls.length} so far (minimum: ${minToolCalls}). Don't write the final answer yet — make another concrete tool call to dig into a different angle or surface a specific quote. Avoid repeating searches you already ran.`,
+            },
+          ],
+        });
+        continue;
       }
       const finalText = response.text ?? '';
       if (!finalText.trim()) {

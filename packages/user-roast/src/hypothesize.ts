@@ -2,6 +2,7 @@ import { getEnv } from '@atmosfera/config';
 import { generateJson, runToolLoop } from '@atmosfera/gemini';
 import { type Schema, Type } from '@google/genai';
 import { z } from 'zod';
+import { getEffectiveRoastKnobs } from './db/config';
 import type { PriorRoast } from './db/roastHistory';
 import { type Fingerprint, summarizeFingerprint } from './fingerprint';
 import { buildHypothesizeTools } from './hypothesizeTools';
@@ -105,25 +106,43 @@ function buildAvoidBlock(priorRoasts: PriorRoast[]): string {
   return lines.join('\n');
 }
 
+/** Capture of everything the trace recorder needs from this phase. */
+export interface HypothesisRunResult {
+  hypothesis: Hypothesis;
+  explorationPrompt: string;
+  explorationSystemInstruction: string;
+  exploration: {
+    finalText: string;
+    iterations: number;
+    toolCalls: { name: string; args: Record<string, unknown>; result: unknown }[];
+  };
+  fingerprintSummaryText: string;
+}
+
 export async function generateHypotheses(params: {
   guildId: string;
   targetUserId: string;
   fingerprint: Fingerprint;
   targetDisplay: string;
   priorRoasts?: PriorRoast[];
-}): Promise<Hypothesis> {
+}): Promise<HypothesisRunResult> {
   const { guildId, targetUserId, fingerprint, targetDisplay, priorRoasts = [] } = params;
   const env = getEnv();
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
+  const knobs = getEffectiveRoastKnobs(guildId);
   const tools = buildHypothesizeTools({ guildId, targetUserId });
   const avoidBlock = buildAvoidBlock(priorRoasts);
+
+  const fingerprintSummaryText = summarizeFingerprint(fingerprint, targetDisplay, {
+    deemphasizeChannelDist: knobs.deemphasizeChannelDist,
+  });
 
   const explorationPrompt = `Target: ${targetDisplay}
 
 Behavioral fingerprint:
-${summarizeFingerprint(fingerprint, targetDisplay)}
+${fingerprintSummaryText}
 ${avoidBlock ? `\n${avoidBlock}\n` : ''}
 Tools available:
 - getActivityOverview(): top channels + top reply partners. Call this first if you need orientation.
@@ -139,9 +158,9 @@ Use 2-4 tool calls to validate concrete patterns. Then output a short summary of
     systemInstruction: EXPLORATION_SYSTEM_INSTRUCTION,
     initialPrompt: explorationPrompt,
     tools,
-    maxIterations: env.ROAST_HYPOTHESIZE_MAX_TOOL_ITERATIONS,
+    maxIterations: knobs.hypothesizeMaxIterations,
     temperature: 0.9,
-    thinkingBudget: 0,
+    thinkingBudget: knobs.thinkingBudget,
   });
 
   // Stage 2: coerce the exploration findings into strict schema-validated JSON.
@@ -154,7 +173,7 @@ ${exploration.finalText.trim() || '(analyst returned no findings — fall back t
 
 Output 3-5 angles JSON now.`;
 
-  return generateJson({
+  const hypothesis = await generateJson({
     apiKey,
     systemInstruction: FORMATTER_SYSTEM_INSTRUCTION,
     prompt: formatterPrompt,
@@ -162,4 +181,12 @@ Output 3-5 angles JSON now.`;
     responseSchema: HYPOTHESIS_RESPONSE_SCHEMA,
     temperature: 0.7,
   });
+
+  return {
+    hypothesis,
+    explorationPrompt,
+    explorationSystemInstruction: EXPLORATION_SYSTEM_INSTRUCTION,
+    exploration,
+    fingerprintSummaryText,
+  };
 }
