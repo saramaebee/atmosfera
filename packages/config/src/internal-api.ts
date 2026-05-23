@@ -91,3 +91,37 @@ export interface BotRolesOk {
 }
 
 export type BotRolesResponse = BotRolesOk | BotChannelsError;
+
+/**
+ * Application command type matching Discord's enum:
+ *  1 = ChatInput (slash command)
+ *  2 = User (right-click on a user → Apps)
+ *  3 = Message (right-click on a message → Apps)
+ */
+export type BotCommandKind = 'chat_input' | 'user_context' | 'message_context' | 'unknown';
+
+export interface BotCommandInfo {
+  id: string;
+  name: string;
+  kind: BotCommandKind;
+  /** 'global' commands work in every guild; 'guild' commands are registered to one specific guild. */
+  scope: 'global' | 'guild';
+  /** Discord's default member-permissions gate, as a decimal string (or null = no override). */
+  defaultMemberPermissions: string | null;
+  /** True if the command is usable in DMs (slash commands only; null for context-menu). */
+  dmPermission: boolean | null;
+  /** Snowflake — updates each time the command is re-registered. Useful for spotting stale registrations. */
+  version: string;
+}
+
+export interface BotCommandsOk {
+  kind: 'ok';
+  guildId: string;
+  guildName: string;
+  /** Application commands the bot has registered globally (visible in every guild). */
+  global: BotCommandInfo[];
+  /** Application commands registered to this specific guild (e.g. via DISCORD_DEV_GUILD_ID). */
+  guildScoped: BotCommandInfo[];
+}
+
+export type BotCommandsResponse = BotCommandsOk | BotChannelsError;

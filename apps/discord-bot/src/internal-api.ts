@@ -4,12 +4,17 @@ import {
   type BotChannelInfo,
   type BotChannelPerms,
   type BotChannelsResponse,
+  type BotCommandInfo,
+  type BotCommandKind,
+  type BotCommandsResponse,
   type BotRoleInfo,
   type BotRolesResponse,
   getEnv,
 } from '@atmosfera/config';
 import type { SapphireClient } from '@sapphire/framework';
 import {
+  type ApplicationCommand,
+  ApplicationCommandType,
   ChannelType,
   type GuildBasedChannel,
   type GuildMember,
@@ -18,6 +23,7 @@ import {
 
 const CHANNELS_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/channels$/;
 const ROLES_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/roles$/;
+const COMMANDS_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/commands$/;
 
 const TYPE_LABELS: Record<number, string> = {
   [ChannelType.GuildText]: 'text',
@@ -54,7 +60,10 @@ function computePerms(channel: GuildBasedChannel, me: GuildMember): BotChannelPe
   };
 }
 
-function json(body: BotChannelsResponse | BotRolesResponse, status: number): Response {
+function json(
+  body: BotChannelsResponse | BotRolesResponse | BotCommandsResponse,
+  status: number,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -143,6 +152,75 @@ function buildRolesResponse(client: SapphireClient, guildId: string): BotRolesRe
   return { kind: 'ok', guildId: guild.id, guildName: guild.name, roles };
 }
 
+function kindFromType(type: number): BotCommandKind {
+  switch (type) {
+    case ApplicationCommandType.ChatInput:
+      return 'chat_input';
+    case ApplicationCommandType.User:
+      return 'user_context';
+    case ApplicationCommandType.Message:
+      return 'message_context';
+    default:
+      return 'unknown';
+  }
+}
+
+function toCommandInfo(cmd: ApplicationCommand, scope: 'global' | 'guild'): BotCommandInfo {
+  return {
+    id: cmd.id,
+    name: cmd.name,
+    kind: kindFromType(cmd.type),
+    scope,
+    defaultMemberPermissions: cmd.defaultMemberPermissions?.bitfield.toString() ?? null,
+    dmPermission: cmd.dmPermission ?? null,
+    version: cmd.version,
+  };
+}
+
+async function buildCommandsResponse(
+  client: SapphireClient,
+  guildId: string,
+): Promise<BotCommandsResponse> {
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) {
+    return { kind: 'not_found', message: `bot is not in guild ${guildId}` };
+  }
+  const app = client.application;
+  if (!app) {
+    return { kind: 'not_cached', message: 'client.application not ready yet — retry shortly' };
+  }
+
+  try {
+    // Force a fresh fetch from Discord on each call. The internal API is
+    // owner-only debugging, so the extra round-trips are fine and cache drift
+    // would defeat the whole point of this view.
+    const [globalCmds, guildCmds] = await Promise.all([
+      app.commands.fetch(),
+      guild.commands.fetch(),
+    ]);
+    const globalList: BotCommandInfo[] = [...globalCmds.values()].map((c) =>
+      toCommandInfo(c, 'global'),
+    );
+    const guildList: BotCommandInfo[] = [...guildCmds.values()].map((c) =>
+      toCommandInfo(c, 'guild'),
+    );
+    globalList.sort((a, b) => a.name.localeCompare(b.name));
+    guildList.sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      kind: 'ok',
+      guildId: guild.id,
+      guildName: guild.name,
+      global: globalList,
+      guildScoped: guildList,
+    };
+  } catch (err) {
+    return {
+      kind: 'unavailable',
+      message: `failed to fetch commands: ${(err as Error).message}`,
+    };
+  }
+}
+
 export interface InternalApiServer {
   port: number;
   close: () => void;
@@ -158,7 +236,7 @@ export function startInternalApi(client: SapphireClient): InternalApiServer {
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: env.INTERNAL_API_PORT,
-    fetch(req) {
+    async fetch(req) {
       const url = new URL(req.url);
       if (req.method !== 'GET') {
         return json({ kind: 'unavailable', message: 'method not allowed' }, 405);
@@ -179,6 +257,20 @@ export function startInternalApi(client: SapphireClient): InternalApiServer {
       if (rolesMatch) {
         const body = buildRolesResponse(client, rolesMatch[1]);
         const status = body.kind === 'ok' ? 200 : 404;
+        return json(body, status);
+      }
+
+      const commandsMatch = COMMANDS_ROUTE.exec(url.pathname);
+      if (commandsMatch) {
+        const body = await buildCommandsResponse(client, commandsMatch[1]);
+        const status =
+          body.kind === 'ok'
+            ? 200
+            : body.kind === 'not_cached'
+              ? 503
+              : body.kind === 'unavailable'
+                ? 502
+                : 404;
         return json(body, status);
       }
 
