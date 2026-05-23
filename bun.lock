@@ -12,6 +12,7 @@
         "@atmosfera/explain": "workspace:*",
         "@atmosfera/gemini": "workspace:*",
         "@atmosfera/geocode": "workspace:*",
+        "@atmosfera/lang-classify": "workspace:*",
         "@atmosfera/user-roast": "workspace:*",
         "@atmosfera/web": "workspace:*",
       },
@@ -38,6 +39,7 @@
         "@atmosfera/explain": "workspace:*",
         "@atmosfera/gemini": "workspace:*",
         "@atmosfera/geocode": "workspace:*",
+        "@atmosfera/lang-classify": "workspace:*",
         "@atmosfera/user-roast": "workspace:*",
         "@sapphire/framework": "^5.5.0",
         "discord.js": "^14.26.4",
@@ -128,6 +130,10 @@
         "zod": "^3.23.8",
       },
     },
+    "packages/lang-classify": {
+      "name": "@atmosfera/lang-classify",
+      "version": "0.0.0",
+    },
     "packages/user-roast": {
       "name": "@atmosfera/user-roast",
       "version": "0.0.0",
@@ -159,6 +165,8 @@
     "@atmosfera/gemini": ["@atmosfera/gemini@workspace:packages/gemini"],
 
     "@atmosfera/geocode": ["@atmosfera/geocode@workspace:packages/geocode"],
+
+    "@atmosfera/lang-classify": ["@atmosfera/lang-classify@workspace:packages/lang-classify"],
 
     "@atmosfera/user-roast": ["@atmosfera/user-roast@workspace:packages/user-roast"],
 
