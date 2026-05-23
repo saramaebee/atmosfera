@@ -13,6 +13,7 @@
     "@atmosfera/climate": "workspace:*",
     "@atmosfera/config": "workspace:*",
     "@atmosfera/db": "workspace:*",
+    "@atmosfera/explain": "workspace:*",
     "@atmosfera/geocode": "workspace:*",
     "@atmosfera/city-roast": "workspace:*",
     "@atmosfera/gemini": "workspace:*",

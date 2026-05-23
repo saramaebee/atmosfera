@@ -336,6 +336,36 @@ export const commandPermissionRules = sqliteTable(
 );
 
 /**
+ * Per-guild mapping of Discord role → language proficiency. Used by /explain
+ * to weight surrounding-message context: when a message in the context window
+ * is authored by a user whose role appears here with tier='native', the
+ * model is told to treat their phrasing as authoritative.
+ *
+ * Multiple roles can map to the same (language, tier) — e.g. a server may have
+ * both "Native English" and "British English" roles. Servers without any rows
+ * fall back to AI-inferred authority (no breaking degradation).
+ *
+ * `tier` ladder is broader than v0 needs (only 'native' is used in prompt
+ * weighting today) so admins can capture their existing fluency-level roles
+ * without re-configuration when finer tiering ships.
+ */
+export const explainGuildRoles = sqliteTable(
+  'explain_guild_roles',
+  {
+    guildId: text('guild_id').notNull(),
+    roleId: text('role_id').notNull(),
+    language: text('language').notNull().$type<'en' | 'es' | 'other'>(),
+    tier: text('tier').notNull().$type<'native' | 'fluent' | 'intermediate' | 'beginner'>(),
+    setBy: text('set_by').notNull(),
+    setAt: integer('set_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.guildId, t.roleId] }),
+    index('idx_explain_guild_roles_guild_lang').on(t.guildId, t.language),
+  ],
+);
+
+/**
  * Generic event log for admin-facing mutations. Callers anywhere in the bot
  * use recordAuditEvent(). eventType follows a `domain.subject.action` convention.
  * Indefinite retention by design.
@@ -457,3 +487,7 @@ export type PinnedRoastVote = typeof pinnedRoastVotes.$inferSelect;
 export type RoastTone = 'sharp' | 'brutal';
 export type RoastTraceRow = typeof roastTrace.$inferSelect;
 export type NewRoastTraceRow = typeof roastTrace.$inferInsert;
+export type ExplainGuildRoleRow = typeof explainGuildRoles.$inferSelect;
+export type NewExplainGuildRoleRow = typeof explainGuildRoles.$inferInsert;
+export type ExplainLanguage = 'en' | 'es' | 'other';
+export type ExplainTier = 'native' | 'fluent' | 'intermediate' | 'beginner';

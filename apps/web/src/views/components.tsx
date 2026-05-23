@@ -110,6 +110,7 @@ export interface GuildSidebarProps {
     | 'config'
     | 'perms'
     | 'users'
+    | 'explain-roles'
     | 'debug'
     | 'debug-roasts'
     | 'debug-roast-knobs';
@@ -160,6 +161,10 @@ export function GuildSidebar(props: GuildSidebarProps) {
           <a class={cls('users')} href={`/g/${props.guildId}/users`}>
             <Icon.Users />
             <span>Users</span>
+          </a>
+          <a class={cls('explain-roles')} href={`/g/${props.guildId}/explain-roles`}>
+            <Icon.Shield />
+            <span>Explain roles</span>
           </a>
         </>
       ) : null}

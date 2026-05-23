@@ -69,3 +69,25 @@ export interface BotChannelsError {
 }
 
 export type BotChannelsResponse = BotChannelsOk | BotChannelsError;
+
+export interface BotRoleInfo {
+  id: string;
+  name: string;
+  /** Decimal RGB color, 0 = default Discord role color. */
+  color: number;
+  /** Higher position = higher in the role hierarchy. */
+  position: number;
+  /** True for integration/bot-managed roles, which admins typically should not pick. */
+  managed: boolean;
+  /** True for the @everyone role; surfaced so the UI can filter it out. */
+  everyone: boolean;
+}
+
+export interface BotRolesOk {
+  kind: 'ok';
+  guildId: string;
+  guildName: string;
+  roles: BotRoleInfo[];
+}
+
+export type BotRolesResponse = BotRolesOk | BotChannelsError;

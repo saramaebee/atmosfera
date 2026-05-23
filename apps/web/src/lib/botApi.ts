@@ -1,4 +1,9 @@
-import { type BotChannelsResponse, getEnv, isInternalApiEnabled } from '@atmosfera/config';
+import {
+  type BotChannelsResponse,
+  type BotRolesResponse,
+  getEnv,
+  isInternalApiEnabled,
+} from '@atmosfera/config';
 
 const REQUEST_TIMEOUT_MS = 3000;
 
@@ -28,6 +33,35 @@ export async function fetchBotChannels(guildId: string): Promise<BotChannelsResp
     });
     const body = (await res.json()) as BotChannelsResponse;
     return body;
+  } catch (err) {
+    return {
+      kind: 'unavailable',
+      message: `bot internal api unreachable: ${(err as Error).message}`,
+    };
+  }
+}
+
+/**
+ * Live guild role list from the bot. Used by the /explain-roles page to render
+ * a role picker. Same unavailable / not_found / unauthorized envelope as the
+ * channels endpoint.
+ */
+export async function fetchBotRoles(guildId: string): Promise<BotRolesResponse> {
+  if (!isInternalApiEnabled()) {
+    return {
+      kind: 'unavailable',
+      message: 'INTERNAL_API_TOKEN is not configured',
+    };
+  }
+  const env = getEnv();
+  const token = env.INTERNAL_API_TOKEN!;
+  const url = `http://127.0.0.1:${env.INTERNAL_API_PORT}/internal/guilds/${guildId}/roles`;
+  try {
+    const res = await fetch(url, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return (await res.json()) as BotRolesResponse;
   } catch (err) {
     return {
       kind: 'unavailable',
