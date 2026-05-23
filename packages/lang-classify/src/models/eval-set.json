@@ -1,0 +1,51 @@
+{
+  "comment": "Hand-curated regression suite. Each row: { text, expected }. 'expected' is one of en | es | mixed | unknown | other. Keep entries short — Discord-ish — and ensure each label has enough coverage that random misclassification doesn't tank the threshold tests.",
+  "rows": [
+    { "text": "the meeting is at three pm tomorrow", "expected": "en" },
+    { "text": "I'm not sure if I'll be able to make it tonight", "expected": "en" },
+    { "text": "did you see the score from last night's game", "expected": "en" },
+    { "text": "honestly that was the best burger I've had in years", "expected": "en" },
+    { "text": "running a bit late, will be there in ten minutes", "expected": "en" },
+    { "text": "could you please send me the address again", "expected": "en" },
+    { "text": "we should probably leave soon to avoid traffic", "expected": "en" },
+    { "text": "yeah I think so too", "expected": "en" },
+    { "text": "tell me if you need any help with that", "expected": "en" },
+    { "text": "I love how the weather has been this week", "expected": "en" },
+    { "text": "la reunión es mañana a las tres de la tarde", "expected": "es" },
+    { "text": "no estoy seguro si voy a poder ir esta noche", "expected": "es" },
+    { "text": "viste el resultado del partido de anoche", "expected": "es" },
+    { "text": "sinceramente fue la mejor hamburguesa que he comido en años", "expected": "es" },
+    { "text": "voy un poco tarde, llego en diez minutos", "expected": "es" },
+    { "text": "me puedes mandar la dirección otra vez por favor", "expected": "es" },
+    { "text": "deberíamos salir pronto para evitar el tráfico", "expected": "es" },
+    { "text": "sí yo también creo lo mismo", "expected": "es" },
+    { "text": "avísame si necesitas ayuda con eso", "expected": "es" },
+    { "text": "me encanta cómo ha estado el tiempo esta semana", "expected": "es" },
+    { "text": "¿qué tal estás? espero que todo vaya bien por allá", "expected": "es" },
+    { "text": "ñoño, mañana cocino arroz con pollo en mi casa", "expected": "es" },
+    { "text": "voy al store mañana para comprar algunas cosas", "expected": "mixed" },
+    { "text": "sorry no puedo today, tengo work hasta tarde", "expected": "mixed" },
+    { "text": "let me know cuando estés ready para salir", "expected": "mixed" },
+    { "text": "hola how are you doing this morning my friend", "expected": "mixed" },
+    { "text": "hi", "expected": "unknown" },
+    { "text": "ok", "expected": "unknown" },
+    { "text": "lol", "expected": "unknown" },
+    { "text": "https://example.com", "expected": "unknown" },
+    { "text": "```\nconst x = 1;\n```", "expected": "unknown" },
+    { "text": "Bonjour, comment allez-vous aujourd'hui mon ami?", "expected": "other" },
+    { "text": "Heute ist ein schöner Tag, ich gehe spazieren im Park.", "expected": "other" },
+    {
+      "text": "Oggi è una bella giornata e voglio andare al parco con i miei amici.",
+      "expected": "other"
+    },
+    {
+      "text": "Hoje está um dia muito bom para passear no parque com os amigos.",
+      "expected": "other"
+    },
+    { "text": "Bună ziua, ce mai faceți astăzi prietene?", "expected": "other" },
+    {
+      "text": "Vandaag is een mooie dag om in het park te wandelen met vrienden.",
+      "expected": "other"
+    }
+  ]
+}
