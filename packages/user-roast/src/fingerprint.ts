@@ -313,7 +313,20 @@ export async function buildFingerprint(params: {
   });
 }
 
-export function summarizeFingerprint(fp: Fingerprint, targetDisplay: string): string {
+export interface SummarizeFingerprintOptions {
+  /**
+   * When true, omit the channel-distribution + hour/length histograms from
+   * the summary. Knob (`roast_deemphasize_channel_dist`) for A/B-ing whether
+   * the model's "monoculture" tendency disappears without that signal.
+   */
+  deemphasizeChannelDist?: boolean;
+}
+
+export function summarizeFingerprint(
+  fp: Fingerprint,
+  targetDisplay: string,
+  options: SummarizeFingerprintOptions = {},
+): string {
   const peakHour = fp.hourHistogram.indexOf(Math.max(...fp.hourHistogram));
   const partners = fp.topPartners
     .slice(0, 5)
@@ -329,20 +342,31 @@ export function summarizeFingerprint(fp: Fingerprint, targetDisplay: string): st
       : 'Rank unknown (no index)';
 
   const channelsIgnored = Math.max(fp.totalGuildChannels - fp.activeChannels, 0);
-  const channelContext =
-    fp.totalGuildChannels <= 1
+  const channelContext = options.deemphasizeChannelDist
+    ? null
+    : fp.totalGuildChannels <= 1
       ? `Server has only ${fp.totalGuildChannels} readable channel — channel choice is NOT a viable roast angle.`
       : `Server has ${fp.totalGuildChannels} readable channels; target posts in ${fp.activeChannels} of them (ignores ${channelsIgnored}).`;
-  return `Target: ${targetDisplay}
-Data source: ${fp.source}${fp.windowDays ? ` (last ${fp.windowDays}d)` : ''}
-Total messages observed: ${fp.totalMessages}
-Avg message length: ${fp.avgMessageLength.toFixed(1)} chars
-${channelContext}
-${rank}
-Longest posting streak: ${fp.longestStreakDays} days
-Peak posting hour (UTC): ${peakHour}:00
-Top channels: ${channels || '(none observed)'}
-Top interaction partners: ${partners || '(none observed)'}
-Hour-of-day histogram (UTC, 0-23): [${fp.hourHistogram.join(', ')}]
-Length-bucket histogram [tiny, short, med, long, wall]: [${fp.lengthBucketHistogram.join(', ')}]`;
+
+  const lines = [
+    `Target: ${targetDisplay}`,
+    `Data source: ${fp.source}${fp.windowDays ? ` (last ${fp.windowDays}d)` : ''}`,
+    `Total messages observed: ${fp.totalMessages}`,
+    `Avg message length: ${fp.avgMessageLength.toFixed(1)} chars`,
+  ];
+  if (channelContext) lines.push(channelContext);
+  lines.push(rank);
+  lines.push(`Longest posting streak: ${fp.longestStreakDays} days`);
+  if (!options.deemphasizeChannelDist) {
+    lines.push(`Peak posting hour (UTC): ${peakHour}:00`);
+    lines.push(`Top channels: ${channels || '(none observed)'}`);
+  }
+  lines.push(`Top interaction partners: ${partners || '(none observed)'}`);
+  if (!options.deemphasizeChannelDist) {
+    lines.push(`Hour-of-day histogram (UTC, 0-23): [${fp.hourHistogram.join(', ')}]`);
+    lines.push(
+      `Length-bucket histogram [tiny, short, med, long, wall]: [${fp.lengthBucketHistogram.join(', ')}]`,
+    );
+  }
+  return lines.join('\n');
 }

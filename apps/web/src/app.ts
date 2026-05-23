@@ -7,10 +7,12 @@ import { auditRoutes } from './routes/audit';
 import { configRoutes } from './routes/config';
 import { guildRoutes } from './routes/guild';
 import { guildDebugRoutes } from './routes/guildDebug';
+import { guildRoastTracesRoutes } from './routes/guildRoastTraces';
 import { guildsRoutes } from './routes/guilds';
 import { indexRoutes } from './routes/index_';
 import { meRoutes } from './routes/me';
 import { permsRoutes } from './routes/perms';
+import { roastKnobsRoutes } from './routes/roastKnobs';
 import { usersRoutes } from './routes/users';
 import type { AppEnv } from './types';
 
@@ -29,6 +31,8 @@ app.route('/g', configRoutes);
 app.route('/g', permsRoutes);
 app.route('/g', usersRoutes);
 app.route('/g', guildDebugRoutes);
+app.route('/g', guildRoastTracesRoutes);
+app.route('/g', roastKnobsRoutes);
 app.route('/admin', adminRoutes);
 
 app.notFound((c) => c.text('Not found', 404));

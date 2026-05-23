@@ -1,6 +1,7 @@
 import { getEnv } from '@atmosfera/config';
 import { getDb } from './client';
 import { purgeMessagesOlderThan } from './messages';
+import { pruneRoastTracesOlderThan } from './roastTrace';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -9,6 +10,7 @@ export interface PurgeStats {
   activityHourly: number;
   interactions: number;
   roastHistory: number;
+  roastTrace: number;
   messagesRecent: number;
 }
 
@@ -34,6 +36,10 @@ export function purgeOldRows(now: number = Date.now()): PurgeStats {
     .prepare('DELETE FROM roast_history WHERE created_at < ?')
     .run(roastHistoryCutoff);
 
+  // Traces are sized at the same retention as roast_history — they're the
+  // matching sidecar.
+  const roastTraceDeleted = pruneRoastTracesOlderThan(roastHistoryCutoff);
+
   const messagesRecent = purgeMessagesOlderThan(messagesCutoff);
 
   return {
@@ -41,6 +47,7 @@ export function purgeOldRows(now: number = Date.now()): PurgeStats {
     activityHourly: hourly.changes,
     interactions: interactions.changes,
     roastHistory: roastHistory.changes,
+    roastTrace: roastTraceDeleted,
     messagesRecent,
   };
 }
@@ -50,7 +57,7 @@ export function schedulePurge(intervalMs: number = DAY_MS): NodeJS.Timeout {
     try {
       const stats = purgeOldRows();
       console.log(
-        `[purge] activity_recent=${stats.activityRecent} activity_hourly=${stats.activityHourly} interactions=${stats.interactions} roast_history=${stats.roastHistory} messages_recent=${stats.messagesRecent}`,
+        `[purge] activity_recent=${stats.activityRecent} activity_hourly=${stats.activityHourly} interactions=${stats.interactions} roast_history=${stats.roastHistory} roast_trace=${stats.roastTrace} messages_recent=${stats.messagesRecent}`,
       );
     } catch (err) {
       console.error('[purge] failed:', err);

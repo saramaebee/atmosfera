@@ -2,6 +2,7 @@ import { getEnv } from '@atmosfera/config';
 import { SAFETY_OFF, type SafetyPolicy, runToolLoop } from '@atmosfera/gemini';
 import { HarmCategory, HarmProbability } from '@google/genai';
 import type { Guild, Snowflake } from 'discord.js';
+import { getEffectiveRoastKnobs } from './db/config';
 import type { PriorRoast } from './db/roastHistory';
 import { type Fingerprint, summarizeFingerprint } from './fingerprint';
 import type { Hypothesis } from './hypothesize';
@@ -92,6 +93,10 @@ export interface RoastResult {
   iterations: number;
   citedMessageIds: Snowflake[];
   toolCalls: { name: string; args: Record<string, unknown>; result: unknown }[];
+  /** Captures used to build the trace row in pipeline.ts. */
+  systemInstruction: string;
+  initialPrompt: string;
+  fingerprintSummaryText: string;
 }
 
 export async function synthesizeRoast(params: {
@@ -118,16 +123,21 @@ export async function synthesizeRoast(params: {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
+  const knobs = getEffectiveRoastKnobs(guild.id);
   const tools = buildRoastTools({ guild, session });
 
   const anglesText = hypotheses.angles
     .map((a, i) => `${i + 1}. ${a.title} — ${a.rationale}`)
     .join('\n');
 
+  const fingerprintSummaryText = summarizeFingerprint(fingerprint, targetDisplay, {
+    deemphasizeChannelDist: knobs.deemphasizeChannelDist,
+  });
+
   const initialPrompt = `Target: ${targetDisplay}
 
 Behavioral fingerprint:
-${summarizeFingerprint(fingerprint, targetDisplay)}
+${fingerprintSummaryText}
 
 Angles to investigate (pick the juiciest, you don't need to use all):
 ${anglesText}
@@ -140,16 +150,25 @@ You have these tools available to gather evidence:
 
 Tool budget is bounded. Pick 1-3 calls that maximize roast material, then produce the final roast.`;
 
+  const systemInstruction = SYSTEM_INSTRUCTION(
+    tone,
+    length,
+    targetDisplay,
+    priorRoasts,
+    fingerprint,
+  );
+
   const result = await runToolLoop({
     apiKey,
-    systemInstruction: SYSTEM_INSTRUCTION(tone, length, targetDisplay, priorRoasts, fingerprint),
+    systemInstruction,
     initialPrompt,
     tools,
-    maxIterations: env.ROAST_MAX_TOOL_ITERATIONS,
-    temperature: tone === 'brutal' ? 1.0 : 0.95,
+    maxIterations: knobs.synthesizeMaxIterations,
+    temperature: tone === 'brutal' ? knobs.temperatureBrutal : knobs.temperatureSharp,
     safetySettings: SAFETY_OFF,
     safetyPolicy: policyFor(tone),
-    thinkingBudget: 0,
+    thinkingBudget: knobs.thinkingBudget,
+    minToolCalls: knobs.minToolCalls,
   });
 
   const citedIds = new Set<Snowflake>();
@@ -167,5 +186,8 @@ Tool budget is bounded. Pick 1-3 calls that maximize roast material, then produc
     iterations: result.iterations,
     citedMessageIds: [...citedIds],
     toolCalls: result.toolCalls,
+    systemInstruction,
+    initialPrompt,
+    fingerprintSummaryText,
   };
 }

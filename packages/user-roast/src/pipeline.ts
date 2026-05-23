@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { getEnv } from '@atmosfera/config';
 import type { Guild, GuildMember } from 'discord.js';
+import { getEffectiveRoastKnobs } from './db/config';
 import { getRecentRoastsForTarget, recordRoast } from './db/roastHistory';
+import { recordRoastTrace } from './db/roastTrace';
 import { type Fingerprint, buildFingerprint } from './fingerprint';
 import { type Hypothesis, generateHypotheses } from './hypothesize';
 import { RoastSession } from './sessionCache';
@@ -56,6 +58,7 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
   const { guild, target, invoker, tone, length } = input;
   const env = getEnv();
   const invocationId = randomUUID();
+  const startedAt = Date.now();
 
   const session = new RoastSession({
     invocationId,
@@ -92,7 +95,7 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
 
     if (timeoutHandle.timedOut) throw new Error('Roast timed out before hypothesis');
 
-    const hypotheses = await generateHypotheses({
+    const hypothesisRun = await generateHypotheses({
       guildId: guild.id,
       targetUserId: target.id,
       fingerprint,
@@ -106,12 +109,14 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
       guild,
       session,
       fingerprint,
-      hypotheses,
+      hypotheses: hypothesisRun.hypothesis,
       targetDisplay: target.displayName,
       tone,
       length,
       priorRoasts,
     });
+
+    const totalDurationMs = Date.now() - startedAt;
 
     try {
       recordRoast({
@@ -121,7 +126,7 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
         invokerId: invoker.id,
         tone,
         createdAt: Date.now(),
-        angleTitles: hypotheses.angles.map((a) => a.title),
+        angleTitles: hypothesisRun.hypothesis.angles.map((a) => a.title),
         referencedPartnerIds: extractReferencedPartnerIds(roast.text, fingerprint.topPartners),
         searchedKeywords: extractSearchedKeywords(roast.toolCalls),
       });
@@ -129,10 +134,47 @@ export async function runRoast(input: RoastInput): Promise<RoastOutput> {
       console.warn('[roast] recordRoast failed (non-fatal):', err);
     }
 
+    try {
+      const knobs = getEffectiveRoastKnobs(guild.id);
+      recordRoastTrace({
+        invocationId,
+        guildId: guild.id,
+        targetId: target.id,
+        invokerId: invoker.id,
+        createdAt: Date.now(),
+        tone,
+        length,
+        fingerprintJson: JSON.stringify(fingerprint),
+        fingerprintSummaryText: hypothesisRun.fingerprintSummaryText,
+        hypothesisPromptText: hypothesisRun.explorationPrompt,
+        hypothesisExplorationJson: JSON.stringify({
+          systemInstruction: hypothesisRun.explorationSystemInstruction,
+          finalText: hypothesisRun.exploration.finalText,
+          iterations: hypothesisRun.exploration.iterations,
+          toolCalls: hypothesisRun.exploration.toolCalls,
+        }),
+        hypothesisJson: JSON.stringify(hypothesisRun.hypothesis),
+        synthesisSystemText: roast.systemInstruction,
+        synthesisPromptText: roast.initialPrompt,
+        synthesisJson: JSON.stringify({
+          finalText: roast.text,
+          iterations: roast.iterations,
+          toolCalls: roast.toolCalls,
+          citedMessageIds: roast.citedMessageIds,
+        }),
+        knobsJson: JSON.stringify(knobs),
+        totalMessagesFetched: session.fetchedCount,
+        totalDurationMs,
+        finalRoastText: roast.text,
+      });
+    } catch (err) {
+      console.warn('[roast] recordRoastTrace failed (non-fatal):', err);
+    }
+
     return {
       invocationId,
       fingerprint,
-      hypotheses,
+      hypotheses: hypothesisRun.hypothesis,
       roast,
       totalMessagesFetched: session.fetchedCount,
     };

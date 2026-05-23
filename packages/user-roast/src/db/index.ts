@@ -5,4 +5,5 @@ export * from './config';
 export * from './messages';
 export * from './pinnedRoasts';
 export * from './roastHistory';
+export * from './roastTrace';
 export * from './purge';

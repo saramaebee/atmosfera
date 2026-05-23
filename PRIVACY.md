@@ -2,7 +2,7 @@
 
 This bot has two flows: **climate charts** (per-city, no Discord-user data persisted) and **user roasts** (per-Discord-user, the privacy-sensitive flow). The climate flow only caches public weather data and resolved city aliases. Everything below is about the user-roast flow.
 
-User-roast policy version: **2026-05-22.6**
+User-roast policy version: **2026-05-22.7**
 
 > Mirror of the `/privacy` slash command. Source of truth: `packages/user-roast/src/privacy/policy.ts`. If anything below diverges from that file, the source file wins — please open an issue.
 
@@ -13,6 +13,7 @@ User-roast policy version: **2026-05-22.6**
 - Reply and @mention edges (who interacted with whom, when, in which channel) — 30-day retention.
 - **Verbatim message text** on guilds with `/roast-setup` enabled — **7-day rolling**. Edits in Discord are mirrored to the row; deletes (single or bulk-mod) propagate within seconds; opting out of `/roast` purges your stored text immediately. Stored only to seed the roast pipeline's recent-message sample so we can synthesize without re-fetching from Discord on every roast.
 - Roast history metadata: angle labels, partner IDs name-dropped, search keywords used — 30-day retention. Used to make repeat roasts feel less repetitive.
+- **Roast decision traces** — per-invocation capture of the exact prompts the bot sent, the structured hypothesis JSON, both tool-loop transcripts (which tools were called, with what args, what results came back — may embed snippets of the target's recent messages, the same content the model saw to write the roast), and effective pipeline tuning values. Owner-only debug surface, 30-day rolling, matched to roast history. Used to audit *why* the model picked the angle it did.
 - Pinned roasts: when the target of a roast explicitly clicks 📌 Pin on a public roast, we store the roast text along with the channel/message IDs that contained it, plus the upvote ledger (which voters approved which pinned roast). Retained until the owner deletes via `/pinned-roast delete`; not subject to the 30-day purge.
 - Per-guild config: indexing on/off, command toggles, brutal-mode allowed.
 - Per-user brutal-mode opt-in records.
@@ -52,6 +53,7 @@ During a roast, the bot pulls the target's last 7 days of message text from the 
 | Interaction edges | 30 days | `INTERACTIONS_RETENTION_DAYS` |
 | Verbatim message text | **7 days** | `MESSAGE_CONTENT_RETENTION_DAYS` |
 | Roast history metadata | 30 days | `ROAST_HISTORY_RETENTION_DAYS` |
+| Roast decision traces | 30 days | `ROAST_HISTORY_RETENTION_DAYS` |
 | Pinned roasts + upvotes | Until owner deletes | — |
 | Guild config / opt-ins | Until you change them | — |
 

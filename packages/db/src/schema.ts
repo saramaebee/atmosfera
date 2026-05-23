@@ -70,7 +70,15 @@ export type AliasScope = 'global' | 'guild' | 'user';
 // All times are Unix ms epochs (integer). No message content is stored
 // anywhere in this section — see PRIVACY.md.
 
-/** Per-guild user-roast feature toggles. Bot is inert until indexing_enabled. */
+/**
+ * Per-guild user-roast feature toggles. Bot is inert until indexing_enabled.
+ *
+ * The `roast*` nullable columns are *override knobs* for the synthesis/
+ * hypothesize pipeline — null means "use env default" (see ROAST_* in
+ * @atmosfera/config). They exist so the prompt-engineering can be tuned per
+ * guild from the web app without redeploys. Resolved into a single object by
+ * getEffectiveRoastKnobs() in packages/user-roast/src/db/config.ts.
+ */
 export const guildConfig = sqliteTable('guild_config', {
   guildId: text('guild_id').primaryKey(),
   indexingEnabled: integer('indexing_enabled').notNull().default(0),
@@ -78,6 +86,13 @@ export const guildConfig = sqliteTable('guild_config', {
   messageEnabled: integer('message_enabled').notNull().default(1),
   brutalAllowed: integer('brutal_allowed').notNull().default(0),
   indexingEnabledAt: integer('indexing_enabled_at'),
+  roastHypothesizeMaxIterations: integer('roast_hypothesize_max_iterations'),
+  roastSynthesizeMaxIterations: integer('roast_synthesize_max_iterations'),
+  roastTemperatureSharp: real('roast_temperature_sharp'),
+  roastTemperatureBrutal: real('roast_temperature_brutal'),
+  roastThinkingBudget: integer('roast_thinking_budget'),
+  roastMinToolCalls: integer('roast_min_tool_calls'),
+  roastDeemphasizeChannelDist: integer('roast_deemphasize_channel_dist'),
 });
 
 /** Aggregated message counts per (user, channel, hour). 30d retention. */
@@ -242,6 +257,45 @@ export const pinnedRoasts = sqliteTable(
   (t) => [index('idx_pinned_roasts_guild_target_pinned').on(t.guildId, t.targetId, t.pinnedAt)],
 );
 
+/**
+ * Per-invocation roast decision trace. One row per /roast run, written from
+ * pipeline.ts as a sidecar to roast_history. Owner-only — surfaced through
+ * the web app's /g/:id/debug/roasts page. 30d retention (matches
+ * roast_history). Captures everything needed to answer "why did the model
+ * pick this angle": fingerprint snapshot, exact prompts sent, full tool-loop
+ * transcripts (args + results), final hypothesis, and effective knob values.
+ * If you add a column here, update packages/user-roast/src/privacy/policy.ts.
+ */
+export const roastTrace = sqliteTable(
+  'roast_trace',
+  {
+    invocationId: text('invocation_id').primaryKey(),
+    guildId: text('guild_id').notNull(),
+    targetId: text('target_id').notNull(),
+    invokerId: text('invoker_id').notNull(),
+    createdAt: integer('created_at').notNull(),
+    tone: text('tone').notNull().$type<'sharp' | 'brutal'>(),
+    length: text('length').notNull().$type<'short' | 'medium' | 'long'>(),
+    fingerprintJson: text('fingerprint_json').notNull(),
+    fingerprintSummaryText: text('fingerprint_summary_text').notNull(),
+    hypothesisPromptText: text('hypothesis_prompt_text').notNull(),
+    hypothesisExplorationJson: text('hypothesis_exploration_json').notNull(),
+    hypothesisJson: text('hypothesis_json').notNull(),
+    synthesisSystemText: text('synthesis_system_text').notNull(),
+    synthesisPromptText: text('synthesis_prompt_text').notNull(),
+    synthesisJson: text('synthesis_json').notNull(),
+    knobsJson: text('knobs_json').notNull(),
+    totalMessagesFetched: integer('total_messages_fetched').notNull(),
+    totalDurationMs: integer('total_duration_ms').notNull(),
+    finalRoastText: text('final_roast_text').notNull(),
+  },
+  (t) => [
+    index('idx_roast_trace_guild_time').on(t.guildId, t.createdAt),
+    index('idx_roast_trace_guild_target_time').on(t.guildId, t.targetId, t.createdAt),
+    index('idx_roast_trace_created').on(t.createdAt),
+  ],
+);
+
 /** Upvotes on pinned roasts. */
 export const pinnedRoastVotes = sqliteTable(
   'pinned_roast_votes',
@@ -401,3 +455,5 @@ export type PinnedRoast = typeof pinnedRoasts.$inferSelect;
 export type NewPinnedRoast = typeof pinnedRoasts.$inferInsert;
 export type PinnedRoastVote = typeof pinnedRoastVotes.$inferSelect;
 export type RoastTone = 'sharp' | 'brutal';
+export type RoastTraceRow = typeof roastTrace.$inferSelect;
+export type NewRoastTraceRow = typeof roastTrace.$inferInsert;
