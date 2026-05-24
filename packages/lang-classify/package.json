@@ -10,7 +10,9 @@
   "scripts": {
     "build:corpus": "bun src/train/build-corpus.ts",
     "train": "bun src/train/train.ts",
-    "evaluate": "bun src/train/evaluate.ts"
+    "evaluate": "bun src/train/evaluate.ts",
+    "label": "bun src/train/label.ts",
+    "audit": "bun src/train/audit.ts"
   },
   "dependencies": {}
 }
