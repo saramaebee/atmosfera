@@ -74,7 +74,11 @@ describe('parseTargets', () => {
 });
 
 describe('stratify', () => {
-  function makeRow(text: string, bucket: ClassifiedRow['bucket'], band: ClassifiedRow['band']): ClassifiedRow {
+  function makeRow(
+    text: string,
+    bucket: ClassifiedRow['bucket'],
+    band: ClassifiedRow['band'],
+  ): ClassifiedRow {
     return { text, bucket, band };
   }
 

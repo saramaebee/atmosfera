@@ -25,9 +25,9 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { classifyText, type ClassifyResult } from '../classify';
+import { type ClassifyResult, classifyText } from '../classify';
 import { loadDefaultModel } from '../index';
-import { type Bucket, bucketOf, parseQueueLine, type QueueRow, shuffleSeeded } from './label';
+import { type Bucket, type QueueRow, bucketOf, parseQueueLine, shuffleSeeded } from './label';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const CACHE_DIR = resolve(HERE, '.cache');
