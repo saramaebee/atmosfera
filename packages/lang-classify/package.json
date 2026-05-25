@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:corpus": "bun src/train/build-corpus.ts",
+    "build:candidates": "bun src/train/build-candidates.ts",
     "train": "bun src/train/train.ts",
     "evaluate": "bun src/train/evaluate.ts",
     "label": "bun src/train/label.ts",
