@@ -1,6 +1,10 @@
 import { Events, Listener, container } from '@sapphire/framework';
 import type { Guild } from 'discord.js';
-import { reconcileAllGuilds, reconcileExplainCommand } from '../lib/explainCommandSync';
+import {
+  reconcileAllGuilds,
+  reconcileExplainCommand,
+  registerExplainRoutingAlias,
+} from '../lib/explainCommandSync';
 
 /**
  * Keeps the per-guild Explain command in sync with each guild's mode (see
@@ -22,6 +26,9 @@ export class ExplainSyncRegisteredListener extends Listener<
   }
 
   public override async run(): Promise<void> {
+    // Wire interaction routing first (Explain isn't Sapphire-registered), then
+    // make each guild's command presence match its mode.
+    registerExplainRoutingAlias();
     await reconcileAllGuilds(container.client);
   }
 }
