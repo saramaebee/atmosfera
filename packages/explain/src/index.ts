@@ -6,6 +6,20 @@ export {
   type SetGuildRoleInput,
   type SetGuildRoleResult,
 } from './db/roles';
+export {
+  listExplainChannels,
+  isExplainAllowedInChannel,
+  addExplainChannel,
+  removeExplainChannel,
+  type AddExplainChannelInput,
+  type RemoveExplainChannelInput,
+} from './db/channels';
+export {
+  getExplainMode,
+  setExplainMode,
+  shouldExplainExist,
+  type SetExplainModeInput,
+} from './db/settings';
 export { runExplain, type ExplainInput } from './pipeline';
 export type {
   ContextMessage,

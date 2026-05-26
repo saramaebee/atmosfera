@@ -125,3 +125,16 @@ export interface BotCommandsOk {
 }
 
 export type BotCommandsResponse = BotCommandsOk | BotChannelsError;
+
+/**
+ * Response to a request that the bot reconcile the per-guild Explain command
+ * with the guild's current mode (create it, or delete it when mode is 'off').
+ * `applied` is whether the reconcile ran against a cached guild.
+ */
+export interface BotExplainSyncOk {
+  kind: 'ok';
+  guildId: string;
+  applied: boolean;
+}
+
+export type BotExplainSyncResponse = BotExplainSyncOk | BotChannelsError;
