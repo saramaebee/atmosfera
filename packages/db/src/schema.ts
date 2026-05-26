@@ -366,6 +366,41 @@ export const explainGuildRoles = sqliteTable(
 );
 
 /**
+ * Per-guild allowlist of channels where the Explain context-menu command may
+ * run. Semantics mirror explain_guild_roles' graceful fallback: a guild with
+ * NO rows is unrestricted (Explain works everywhere); once ≥1 row exists,
+ * Explain is gated to exactly the listed channels and rejected elsewhere with
+ * an ephemeral notice. Admins manage rows via `/explain-setup channels`.
+ */
+export const explainGuildChannels = sqliteTable(
+  'explain_guild_channels',
+  {
+    guildId: text('guild_id').notNull(),
+    channelId: text('channel_id').notNull(),
+    setBy: text('set_by').notNull(),
+    setAt: integer('set_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.guildId, t.channelId] })],
+);
+
+/**
+ * Per-guild availability mode for the Explain command. Three states:
+ *   'everywhere' (default) — visible in every channel, runs anywhere
+ *   'allowlist'            — visible, but only runs in explain_guild_channels rows
+ *   'off'                  — the command is deregistered in the guild (not even
+ *                            visible in the right-click → Apps menu)
+ * No row ⇒ 'everywhere'. Mode 'off' is enforced by removing the per-guild
+ * application command (see explainCommandSync); 'allowlist' is an invocation-time
+ * check (see isExplainAllowedInChannel).
+ */
+export const explainGuildSettings = sqliteTable('explain_guild_settings', {
+  guildId: text('guild_id').primaryKey(),
+  mode: text('mode').notNull().$type<'everywhere' | 'allowlist' | 'off'>(),
+  setBy: text('set_by').notNull(),
+  setAt: integer('set_at').notNull(),
+});
+
+/**
  * Generic event log for admin-facing mutations. Callers anywhere in the bot
  * use recordAuditEvent(). eventType follows a `domain.subject.action` convention.
  * Indefinite retention by design.
@@ -489,5 +524,9 @@ export type RoastTraceRow = typeof roastTrace.$inferSelect;
 export type NewRoastTraceRow = typeof roastTrace.$inferInsert;
 export type ExplainGuildRoleRow = typeof explainGuildRoles.$inferSelect;
 export type NewExplainGuildRoleRow = typeof explainGuildRoles.$inferInsert;
+export type ExplainGuildChannelRow = typeof explainGuildChannels.$inferSelect;
+export type NewExplainGuildChannelRow = typeof explainGuildChannels.$inferInsert;
+export type ExplainGuildSettingsRow = typeof explainGuildSettings.$inferSelect;
+export type ExplainMode = 'everywhere' | 'allowlist' | 'off';
 export type ExplainLanguage = 'en' | 'es' | 'other';
 export type ExplainTier = 'native' | 'fluent' | 'intermediate' | 'beginner';

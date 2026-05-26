@@ -7,6 +7,7 @@ import {
   type BotCommandInfo,
   type BotCommandKind,
   type BotCommandsResponse,
+  type BotExplainSyncResponse,
   type BotRoleInfo,
   type BotRolesResponse,
   getEnv,
@@ -20,10 +21,12 @@ import {
   type GuildMember,
   PermissionFlagsBits,
 } from 'discord.js';
+import { reconcileExplainCommand } from './lib/explainCommandSync';
 
 const CHANNELS_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/channels$/;
 const ROLES_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/roles$/;
 const COMMANDS_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/commands$/;
+const EXPLAIN_SYNC_ROUTE = /^\/internal\/guilds\/(\d{17,20})\/explain-command\/sync$/;
 
 const TYPE_LABELS: Record<number, string> = {
   [ChannelType.GuildText]: 'text',
@@ -61,7 +64,7 @@ function computePerms(channel: GuildBasedChannel, me: GuildMember): BotChannelPe
 }
 
 function json(
-  body: BotChannelsResponse | BotRolesResponse | BotCommandsResponse,
+  body: BotChannelsResponse | BotRolesResponse | BotCommandsResponse | BotExplainSyncResponse,
   status: number,
 ): Response {
   return new Response(JSON.stringify(body), {
@@ -238,12 +241,25 @@ export function startInternalApi(client: SapphireClient): InternalApiServer {
     port: env.INTERNAL_API_PORT,
     async fetch(req) {
       const url = new URL(req.url);
-      if (req.method !== 'GET') {
-        return json({ kind: 'unavailable', message: 'method not allowed' }, 405);
-      }
 
       if (!checkBearer(req.headers.get('authorization'), token)) {
         return json({ kind: 'unauthorized', message: 'unauthorized' }, 401);
+      }
+
+      // POST: reconcile the per-guild Explain command with its DB mode.
+      if (req.method === 'POST') {
+        const syncMatch = EXPLAIN_SYNC_ROUTE.exec(url.pathname);
+        if (syncMatch) {
+          const guildId = syncMatch[1];
+          const applied = await reconcileExplainCommand(client, guildId);
+          const body: BotExplainSyncResponse = { kind: 'ok', guildId, applied };
+          return json(body, 200);
+        }
+        return json({ kind: 'not_found', message: 'not found' }, 404);
+      }
+
+      if (req.method !== 'GET') {
+        return json({ kind: 'unavailable', message: 'method not allowed' }, 405);
       }
 
       const channelsMatch = CHANNELS_ROUTE.exec(url.pathname);

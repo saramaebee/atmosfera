@@ -1,19 +1,37 @@
-import { runExplain } from '@atmosfera/explain';
+import {
+  getExplainMode,
+  isExplainAllowedInChannel,
+  listExplainChannels,
+  runExplain,
+} from '@atmosfera/explain';
 import { BlockedBySafetyError } from '@atmosfera/gemini';
 import { Command } from '@sapphire/framework';
 import {
+  type ApplicationCommandDataResolvable,
   ApplicationCommandType,
-  type ContextMenuCommandBuilder,
   EmbedBuilder,
   type GuildTextBasedChannel,
   type Message,
   type MessageContextMenuCommandInteraction,
 } from 'discord.js';
-import { chatInputRegisterOptions } from '../lib/commandScope';
-import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { registerScope } from '../lib/permissions';
 
 const SCOPE = { baseline: 'everyone' } as const;
 registerScope('Explain', SCOPE);
+
+export const EXPLAIN_COMMAND_NAME = 'Explain';
+
+/**
+ * The Discord application-command definition for Explain. Unlike every other
+ * command, Explain is NOT registered through Sapphire — its per-guild presence
+ * is managed manually (see explainCommandSync) so a guild in 'off' mode has the
+ * command fully removed (invisible in the right-click → Apps menu). Sapphire
+ * still routes the interaction to this piece by command name, so the
+ * AtmosferaScope precondition and requiredClientPermissions still apply.
+ */
+export function buildExplainCommandData(): ApplicationCommandDataResolvable {
+  return { name: EXPLAIN_COMMAND_NAME, type: ApplicationCommandType.Message };
+}
 
 const MAX_POINT_BODY = 350;
 const EMBED_COLOR = 0x6c8eef;
@@ -35,19 +53,10 @@ export class ExplainCommand extends Command {
     });
   }
 
-  public override registerApplicationCommands(registry: Command.Registry) {
-    registry.registerContextMenuCommand(
-      (builder) =>
-        applyScopeToBuilder(
-          (builder as ContextMenuCommandBuilder)
-            .setName('Explain')
-            .setType(ApplicationCommandType.Message)
-            .setDMPermission(false),
-          SCOPE,
-        ),
-      chatInputRegisterOptions(),
-    );
-  }
+  // NOTE: intentionally no registerApplicationCommands override. Explain is
+  // registered per-guild via discord.js (explainCommandSync), not Sapphire, so
+  // that 'off' guilds have it removed entirely. Sapphire still dispatches the
+  // interaction to this piece by command name.
 
   public override async contextMenuRun(interaction: Command.ContextMenuCommandInteraction) {
     if (!interaction.isMessageContextMenuCommand()) {
@@ -57,6 +66,25 @@ export class ExplainCommand extends Command {
     const msgInteraction = interaction as MessageContextMenuCommandInteraction;
     if (!msgInteraction.inGuild() || !msgInteraction.guild) {
       await msgInteraction.reply({ content: 'Server only.', ephemeral: true });
+      return;
+    }
+
+    // Per-guild availability gate. In 'off' mode the command is normally
+    // deregistered (this is defense-in-depth against a stale client); in
+    // 'allowlist' mode it's restricted to specific channels. Must run before
+    // deferReply() so the rejection can be ephemeral.
+    if (!isExplainAllowedInChannel(msgInteraction.guildId, msgInteraction.channelId)) {
+      let content: string;
+      if (getExplainMode(msgInteraction.guildId) === 'off') {
+        content = 'The Explain command is currently disabled in this server.';
+      } else {
+        const allowed = listExplainChannels(msgInteraction.guildId);
+        const mentions = allowed.map((c) => `<#${c.channelId}>`).join(', ');
+        content = `The Explain command can't be used in this channel. Allowed channel${
+          allowed.length === 1 ? '' : 's'
+        }: ${mentions}.`;
+      }
+      await msgInteraction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
       return;
     }
 

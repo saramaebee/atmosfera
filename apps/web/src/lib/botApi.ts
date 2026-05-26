@@ -1,6 +1,7 @@
 import {
   type BotChannelsResponse,
   type BotCommandsResponse,
+  type BotExplainSyncResponse,
   type BotRolesResponse,
   getEnv,
   isInternalApiEnabled,
@@ -63,6 +64,35 @@ export async function fetchBotCommands(guildId: string): Promise<BotCommandsResp
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     return (await res.json()) as BotCommandsResponse;
+  } catch (err) {
+    return {
+      kind: 'unavailable',
+      message: `bot internal api unreachable: ${(err as Error).message}`,
+    };
+  }
+}
+
+/**
+ * Ask the bot to reconcile the per-guild Explain command with the guild's
+ * current mode (create it, or delete it when mode is 'off'). Called after the
+ * web app changes Explain's mode so visibility updates immediately instead of
+ * waiting for the next bot restart. Never throws — unreachable bot maps to
+ * `unavailable` so the caller can show a "applies on next restart" note.
+ */
+export async function syncExplainCommand(guildId: string): Promise<BotExplainSyncResponse> {
+  if (!isInternalApiEnabled()) {
+    return { kind: 'unavailable', message: 'INTERNAL_API_TOKEN is not configured' };
+  }
+  const env = getEnv();
+  const token = env.INTERNAL_API_TOKEN!;
+  const url = `http://127.0.0.1:${env.INTERNAL_API_PORT}/internal/guilds/${guildId}/explain-command/sync`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return (await res.json()) as BotExplainSyncResponse;
   } catch (err) {
     return {
       kind: 'unavailable',

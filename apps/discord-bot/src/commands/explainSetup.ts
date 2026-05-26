@@ -1,7 +1,23 @@
-import { type ExplainLanguage, type ExplainTier, recordAuditEvent } from '@atmosfera/db';
-import { listGuildRoles, removeGuildRole, setGuildRole } from '@atmosfera/explain';
+import {
+  type ExplainLanguage,
+  type ExplainMode,
+  type ExplainTier,
+  recordAuditEvent,
+} from '@atmosfera/db';
+import {
+  addExplainChannel,
+  getExplainMode,
+  listExplainChannels,
+  listGuildRoles,
+  removeExplainChannel,
+  removeGuildRole,
+  setExplainMode,
+  setGuildRole,
+} from '@atmosfera/explain';
 import { Command } from '@sapphire/framework';
+import { ChannelType } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
+import { reconcileExplainCommand } from '../lib/explainCommandSync';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
 import { safeDeferReply, safeRespond } from '../lib/safeInteraction';
 
@@ -27,7 +43,7 @@ export class ExplainSetupCommand extends Command {
       ...options,
       name: 'explain-setup',
       description:
-        'Map server roles to language proficiency so /explain weights native-speaker context.',
+        'Configure Explain: map roles to language proficiency, and restrict it to specific channels.',
       requiredClientPermissions: ['SendMessages', 'EmbedLinks'],
       preconditions: ['AtmosferaScope'],
     });
@@ -40,7 +56,7 @@ export class ExplainSetupCommand extends Command {
           builder
             .setName('explain-setup')
             .setDescription(
-              'Configure how /explain interprets server roles (native-speaker weighting).',
+              'Configure Explain: role weighting (native-speaker context) and channel access.',
             )
             .addSubcommand((sc) =>
               sc
@@ -81,6 +97,56 @@ export class ExplainSetupCommand extends Command {
               sc
                 .setName('list')
                 .setDescription('List all role mappings configured for this server.'),
+            )
+            .addSubcommandGroup((g) =>
+              g
+                .setName('channels')
+                .setDescription('Restrict the Explain command to specific channels.')
+                .addSubcommand((sc) =>
+                  sc
+                    .setName('add')
+                    .setDescription(
+                      'Allow Explain in a channel. Adding the first channel restricts it to that list.',
+                    )
+                    .addChannelOption((o) =>
+                      o
+                        .setName('channel')
+                        .setDescription('The channel where Explain should be allowed.')
+                        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                        .setRequired(true),
+                    ),
+                )
+                .addSubcommand((sc) =>
+                  sc
+                    .setName('remove')
+                    .setDescription('Remove a channel from the Explain allowlist.')
+                    .addChannelOption((o) =>
+                      o
+                        .setName('channel')
+                        .setDescription('The channel to remove from the allowlist.')
+                        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                        .setRequired(true),
+                    ),
+                )
+                .addSubcommand((sc) =>
+                  sc
+                    .setName('list')
+                    .setDescription('Show the current Explain mode and any channel restriction.'),
+                )
+                .addSubcommand((sc) =>
+                  sc
+                    .setName('allow-all')
+                    .setDescription(
+                      'Allow Explain everywhere in this server (clears the restriction).',
+                    ),
+                )
+                .addSubcommand((sc) =>
+                  sc
+                    .setName('disable-all')
+                    .setDescription(
+                      'Turn Explain off in this server (removes it from the Apps menu).',
+                    ),
+                ),
             ),
           SCOPE,
         ),
@@ -95,7 +161,26 @@ export class ExplainSetupCommand extends Command {
     }
     await safeDeferReply(interaction, { ephemeral: true });
 
+    const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand(true);
+
+    if (group === 'channels') {
+      if (sub === 'add') {
+        await this.handleChannelAdd(interaction);
+      } else if (sub === 'remove') {
+        await this.handleChannelRemove(interaction);
+      } else if (sub === 'list') {
+        await this.handleChannelList(interaction);
+      } else if (sub === 'allow-all') {
+        await this.handleModeChange(interaction, 'everywhere');
+      } else if (sub === 'disable-all') {
+        await this.handleModeChange(interaction, 'off');
+      } else {
+        await safeRespond(interaction, { content: `Unknown subcommand: ${sub}`, ephemeral: true });
+      }
+      return;
+    }
+
     if (sub === 'add') {
       await this.handleAdd(interaction);
     } else if (sub === 'remove') {
@@ -202,8 +287,150 @@ export class ExplainSetupCommand extends Command {
       allowedMentions: { parse: [] },
     });
   }
+
+  private async handleChannelAdd(interaction: Command.ChatInputCommandInteraction): Promise<void> {
+    const guildId = interaction.guildId!;
+    const channel = interaction.options.getChannel('channel', true);
+    const { added } = addExplainChannel({
+      guildId,
+      channelId: channel.id,
+      setBy: interaction.user.id,
+    });
+    // Adding activates allowlist mode (and re-enables if the guild was off), so
+    // make sure the command is registered in the guild.
+    await this.reconcile(guildId);
+
+    if (!added) {
+      await safeRespond(interaction, {
+        content: `<#${channel.id}> is already on the Explain allowlist.`,
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+
+    recordAuditEvent(this.container.db, {
+      guildId,
+      actorId: interaction.user.id,
+      eventType: 'explain.channel.add',
+      subjectType: 'channel',
+      subjectId: channel.id,
+      metadata: { channelName: channel.name, mode: 'allowlist', via: 'slash' },
+    });
+
+    const total = listExplainChannels(guildId).length;
+    await safeRespond(interaction, {
+      content:
+        `Added <#${channel.id}> to the Explain allowlist. ` +
+        `Explain is now restricted to ${total} channel${total === 1 ? '' : 's'}.`,
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    });
+  }
+
+  private async handleChannelRemove(
+    interaction: Command.ChatInputCommandInteraction,
+  ): Promise<void> {
+    const guildId = interaction.guildId!;
+    const channel = interaction.options.getChannel('channel', true);
+    const { removed, mode } = removeExplainChannel({
+      guildId,
+      channelId: channel.id,
+      setBy: interaction.user.id,
+    });
+    if (!removed) {
+      await safeRespond(interaction, {
+        content: `<#${channel.id}> is not on the Explain allowlist.`,
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+
+    recordAuditEvent(this.container.db, {
+      guildId,
+      actorId: interaction.user.id,
+      eventType: 'explain.channel.remove',
+      subjectType: 'channel',
+      subjectId: channel.id,
+      metadata: { channelName: channel.name, mode, via: 'slash' },
+    });
+    await this.reconcile(guildId);
+
+    const total = listExplainChannels(guildId).length;
+    const note =
+      mode === 'everywhere'
+        ? ' The allowlist is now empty — Explain works in every channel again.'
+        : ` Explain is now restricted to ${total} channel${total === 1 ? '' : 's'}.`;
+    await safeRespond(interaction, {
+      content: `Removed <#${channel.id}> from the Explain allowlist.${note}`,
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    });
+  }
+
+  private async handleChannelList(interaction: Command.ChatInputCommandInteraction): Promise<void> {
+    const guildId = interaction.guildId!;
+    const mode = getExplainMode(guildId);
+    const rows = listExplainChannels(guildId);
+
+    const header = `**Explain mode: ${formatMode(mode)}.**`;
+    let body: string;
+    if (mode === 'off') {
+      body = 'The command is removed from this server (not shown in the Apps menu).';
+    } else if (mode === 'everywhere') {
+      body =
+        rows.length === 0
+          ? 'Works in every channel. Use `/explain-setup channels add` to restrict it.'
+          : `Works in every channel. ${rows.length} saved channel${rows.length === 1 ? '' : 's'} (inactive — add another or it stays everywhere).`;
+    } else {
+      const lines = rows.map((r) => `- <#${r.channelId}>`);
+      body = `Restricted to ${rows.length} channel${rows.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
+    }
+    await safeRespond(interaction, {
+      content: `${header}\n${body}`,
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    });
+  }
+
+  private async handleModeChange(
+    interaction: Command.ChatInputCommandInteraction,
+    mode: Extract<ExplainMode, 'everywhere' | 'off'>,
+  ): Promise<void> {
+    const guildId = interaction.guildId!;
+    const { previous } = setExplainMode({ guildId, mode, setBy: interaction.user.id });
+    recordAuditEvent(this.container.db, {
+      guildId,
+      actorId: interaction.user.id,
+      eventType: 'explain.mode.set',
+      subjectType: 'guild',
+      subjectId: guildId,
+      metadata: { mode, previous, via: 'slash' },
+    });
+    await this.reconcile(guildId);
+
+    const content =
+      mode === 'off'
+        ? 'Explain is now **disabled** in this server and removed from the right-click → Apps menu.'
+        : 'Explain is now **enabled in every channel** in this server.';
+    await safeRespond(interaction, { content, ephemeral: true });
+  }
+
+  /** Sync the per-guild Explain command with the guild's (just-changed) mode. */
+  private async reconcile(guildId: string): Promise<void> {
+    await reconcileExplainCommand(this.container.client, guildId);
+  }
 }
 
 function formatLanguage(lang: ExplainLanguage): string {
   return lang === 'en' ? 'English' : lang === 'es' ? 'Spanish' : 'Other';
+}
+
+function formatMode(mode: ExplainMode): string {
+  return mode === 'everywhere'
+    ? 'everywhere'
+    : mode === 'allowlist'
+      ? 'only specific channels'
+      : 'disabled';
 }
