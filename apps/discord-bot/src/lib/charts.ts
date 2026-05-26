@@ -21,7 +21,9 @@ import {
 export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
-const OPEN_METEO_ATTRIBUTION = 'Data: [Open-Meteo](https://open-meteo.com) · CC BY 4.0';
+// URL wrapped in <…> so Discord suppresses the link-preview embed while keeping
+// the masked-link text.
+const OPEN_METEO_ATTRIBUTION = 'Data: [Open-Meteo](<https://open-meteo.com>) · CC BY 4.0';
 
 export interface RenderRequest {
   command: CommandKind;
