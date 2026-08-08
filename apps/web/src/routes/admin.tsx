@@ -40,8 +40,6 @@ adminRoutes.get('/', (c) => {
         <StatTile label="Joined last 7d" value={stats.joinedLast7d} />
         <StatTile label="Joined last 30d" value={stats.joinedLast30d} />
         <StatTile label="Departures last 30d" value={stats.leftLast30d} />
-        <StatTile label="Indexing enabled" value={stats.indexingEnabledCount} />
-        <StatTile label="Brutal allowed" value={stats.brutalAllowedCount} />
       </div>
 
       <div class="card">

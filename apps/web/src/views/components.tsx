@@ -103,18 +103,7 @@ export interface GuildSidebarProps {
   guildName: string;
   iconHash: string | null;
   role: Role;
-  active:
-    | 'overview'
-    | 'me'
-    | 'audit'
-    | 'config'
-    | 'perms'
-    | 'users'
-    | 'explain-roles'
-    | 'explain-channels'
-    | 'debug'
-    | 'debug-roasts'
-    | 'debug-roast-knobs';
+  active: 'overview' | 'audit' | 'perms' | 'explain-roles' | 'explain-channels' | 'debug';
 }
 
 export function GuildSidebar(props: GuildSidebarProps) {
@@ -139,10 +128,6 @@ export function GuildSidebar(props: GuildSidebarProps) {
         <Icon.Home />
         <span>Overview</span>
       </a>
-      <a class={cls('me')} href={`/g/${props.guildId}/me`}>
-        <Icon.User />
-        <span>My settings</span>
-      </a>
 
       {canAdmin ? (
         <>
@@ -151,17 +136,9 @@ export function GuildSidebar(props: GuildSidebarProps) {
             <Icon.ScrollText />
             <span>Audit log</span>
           </a>
-          <a class={cls('config')} href={`/g/${props.guildId}/config`}>
-            <Icon.Settings />
-            <span>Config</span>
-          </a>
           <a class={cls('perms')} href={`/g/${props.guildId}/perms`}>
             <Icon.Shield />
             <span>Permissions</span>
-          </a>
-          <a class={cls('users')} href={`/g/${props.guildId}/users`}>
-            <Icon.Users />
-            <span>Users</span>
           </a>
           <a class={cls('explain-roles')} href={`/g/${props.guildId}/explain-roles`}>
             <Icon.Shield />
@@ -180,14 +157,6 @@ export function GuildSidebar(props: GuildSidebarProps) {
           <a class={cls('debug')} href={`/g/${props.guildId}/debug/channels`}>
             <Icon.Layers />
             <span>Channels</span>
-          </a>
-          <a class={cls('debug-roasts')} href={`/g/${props.guildId}/debug/roasts`}>
-            <Icon.ScrollText />
-            <span>Roast traces</span>
-          </a>
-          <a class={cls('debug-roast-knobs')} href={`/g/${props.guildId}/debug/roast-knobs`}>
-            <Icon.Settings />
-            <span>Roast knobs</span>
           </a>
         </>
       ) : null}

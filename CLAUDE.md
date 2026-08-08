@@ -54,6 +54,4 @@ Pipe every command's builder through `applyScopeToBuilder(builder, SCOPE)` insid
 
 ## Audit logging
 
-Any admin-facing mutation must call `recordAuditEvent({ guildId, actorId, eventType, subjectType, subjectId, metadata? })` from `@atmosfera/db`. Event-type convention: `domain.subject.action` (e.g. `permission.grant`, `roast.indexing.toggle`, `roast.config.update`). Don't audit ordinary user activity — that's covered by the message-metadata pipeline and disclosed in `/privacy data`.
-
-User-scope consent changes (brutal opt-in/out, roast participation opt-in/out) **are** audited, even though they're user-initiated, because they're moderation-visible state. Both the bot's slash command and the web app's `/me` page must record the same event types (`roast.brutal.optin`, `roast.brutal.optout`, `roast.optout.set`, `roast.optout.clear`) so the audit trail is consistent across surfaces. Distinguish source via `metadata.via: 'slash' | 'web'`.
+Any admin-facing mutation must call `recordAuditEvent({ guildId, actorId, eventType, subjectType, subjectId, metadata? })` from `@atmosfera/db`. Event-type convention: `domain.subject.action` (e.g. `permission.grant`, `explain.mode.set`, `explain.role.add`). Don't audit ordinary user activity. When the same mutation is reachable from both the bot and the web app, record the same event types on both surfaces and distinguish source via `metadata.via: 'slash' | 'web'`.

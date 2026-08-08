@@ -65,7 +65,7 @@ permsRoutes.get('/:guildId/perms', (c) => {
             <input
               type="text"
               name="commandName"
-              placeholder="e.g. roast"
+              placeholder="e.g. climate"
               required
               pattern="[a-z0-9_-]+"
             />

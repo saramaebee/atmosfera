@@ -45,21 +45,8 @@ describe('command permission/scope hygiene', () => {
     }
 
     const registered = listScopes();
-    // Sanity check — at least the core 12 commands must be present.
-    const expected = [
-      'ping',
-      'climate',
-      'wet',
-      'muggy',
-      'compare',
-      'roast',
-      'roast-user-config',
-      'pinned-roast',
-      'privacy',
-      'roast-setup',
-      'roast-config',
-      'permissions',
-    ];
+    // Sanity check — at least the core commands must be present.
+    const expected = ['ping', 'climate', 'wet', 'muggy', 'compare', 'privacy', 'permissions'];
     for (const name of expected) {
       expect(registered.has(name)).toBe(true);
     }

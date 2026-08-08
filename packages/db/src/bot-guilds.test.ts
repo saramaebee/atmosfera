@@ -68,7 +68,5 @@ describe('bot-guilds', () => {
     markBotGuildLeft(db, 'g2');
     const stats = botGuildStats(db);
     expect(stats.activeCount).toBe(1);
-    expect(stats.indexingEnabledCount).toBe(0);
-    expect(stats.brutalAllowedCount).toBe(0);
   });
 });

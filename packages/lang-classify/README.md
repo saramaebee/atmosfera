@@ -1,6 +1,6 @@
 # @atmosfera/lang-classify
 
-Multinomial Naive Bayes classifier that tags short text as `en`, `es`, `other`, `mixed`, or `unknown`. Used by the bot's `/checklang` command and as input to the language-aware roast pipeline.
+Multinomial Naive Bayes classifier that tags short text as `en`, `es`, `other`, `mixed`, or `unknown`. Used by the bot's `/checklang` command.
 
 The shipped model lives at `src/models/default.json`; the regression suite that gates it lives at `src/models/eval-set.json`. Confidence thresholds and the mixed-language stopword override are defined in `src/classify.ts`.
 
@@ -28,8 +28,8 @@ bun run audit
 
 ## Data-source privacy policy
 
-The committed eval set (`src/models/eval-set.json`) and any training data checked into this repository are sourced **exclusively** from public-domain corpora (Tatoeba) and from synthesized text we generate ourselves. Real Discord message text from `messages_recent` is **never** committed — not verbatim, not anonymized, not paraphrased.
+The committed eval set (`src/models/eval-set.json`) and any training data checked into this repository are sourced **exclusively** from public-domain corpora (Tatoeba) and from synthesized text we generate ourselves. Real Discord message text is **never** committed — not verbatim, not anonymized, not paraphrased.
 
 If a labelling pass ever needs real-message signal (e.g. to capture short, slangy, code-switching register the formal Tatoeba data lacks), both the candidate queue and the labelled output must stay inside `packages/lang-classify/src/train/.cache/`, which is gitignored. CI publishes accuracy numbers against the public eval set; it does not publish text.
 
-This policy holds even though the message-ingestion path already filters out roast-opt-out users and bots: the rationale is that short personal-register text is potentially identifying even with author IDs and mentions stripped, and the cost of leakage is asymmetric against the modest accuracy gain from committing real text. The decision and rationale are recorded in issue #22.
+The rationale: short personal-register text is potentially identifying even with author IDs and mentions stripped, and the cost of leakage is asymmetric against the modest accuracy gain from committing real text. The decision and rationale are recorded in issue #22.
