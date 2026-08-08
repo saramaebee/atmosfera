@@ -17,6 +17,12 @@ export type CommandScope = {
    */
   ownerOverride?: boolean;
   /**
+   * When true, ONLY users in DISCORD_OWNER_IDS may run the command. Checked
+   * before all guild/RBAC/baseline logic — per-guild rules have no effect,
+   * so ownerOnly commands are excluded from the /permissions picker.
+   */
+  ownerOnly?: boolean;
+  /**
    * When true, restrictive per-guild rules (denies, allowlist exclusions) have
    * no effect — users can always run the command. Server staff can still
    * expand access on protected commands; they just can't restrict it.
