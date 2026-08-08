@@ -48,7 +48,7 @@ guildsRoutes.get('/', (c) => {
           <StatTile label="Active guilds" value={stats.activeCount} accent />
           <StatTile label="Joined last 7 days" value={stats.joinedLast7d} />
           <StatTile label="Joined last 30 days" value={stats.joinedLast30d} />
-          <StatTile label="Indexing on" value={stats.indexingEnabledCount} />
+          <StatTile label="Departures last 30 days" value={stats.leftLast30d} />
         </div>
       ) : null}
 

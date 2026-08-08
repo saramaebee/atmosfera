@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { dbPathFromUrl, getEnv, isInternalApiEnabled } from '@atmosfera/config';
 import { type Db, createDb, migrateDb } from '@atmosfera/db';
 import { setExplainDb } from '@atmosfera/explain';
-import { schedulePurge, setUserRoastDb } from '@atmosfera/user-roast';
 import {
   ApplicationCommandRegistries,
   RegisterBehavior,
@@ -15,7 +14,7 @@ import { GatewayIntentBits, Partials } from 'discord.js';
 import { startInternalApi } from './internal-api';
 
 // Bulk-overwrite so commands that aren't in our registry (e.g. leftover
-// skilishu commands like /roast-optin-brutal) get deleted on startup.
+// commands from removed features) get deleted on startup.
 ApplicationCommandRegistries.setDefaultBehaviorWhenNotIdentical(RegisterBehavior.BulkOverwrite);
 
 declare module '@sapphire/framework' {
@@ -41,11 +40,8 @@ const db = createDb(dbPath);
 migrateDb(db);
 container.db = db;
 
-// user-roast carries its own raw-SQL queries (UNION-ALL aggregates, FTS5 MATCH);
-// hand it the underlying bun:sqlite client and start the retention purge loop.
-setUserRoastDb(db.$client);
+// explain carries its own raw-SQL queries; hand it the underlying bun:sqlite client.
 setExplainDb(db.$client);
-schedulePurge();
 
 const client = new SapphireClient({
   intents: [

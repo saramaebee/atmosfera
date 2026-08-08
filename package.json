@@ -22,8 +22,6 @@
     "@atmosfera/geocode": "workspace:*",
     "@atmosfera/gemini": "workspace:*",
     "@atmosfera/lang-classify": "workspace:*",
-    "@atmosfera/city-roast": "workspace:*",
-    "@atmosfera/user-roast": "workspace:*",
     "@atmosfera/web": "workspace:*"
   },
   "devDependencies": {

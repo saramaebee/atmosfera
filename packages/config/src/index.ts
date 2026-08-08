@@ -10,25 +10,6 @@ const intFromEnv = (def: number) =>
       return Number.isFinite(n) ? n : def;
     });
 
-const floatFromEnv = (def: number) =>
-  z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === undefined || v === '') return def;
-      const n = Number.parseFloat(v);
-      return Number.isFinite(n) ? n : def;
-    });
-
-const boolFromEnv = (def: boolean) =>
-  z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === undefined || v === '') return def;
-      return v === '1' || v.toLowerCase() === 'true';
-    });
-
 const csvSnowflakes = z
   .string()
   .optional()
@@ -57,33 +38,6 @@ const envSchema = z.object({
    * `protected` rules.
    */
   DISCORD_OWNER_IDS: csvSnowflakes,
-
-  // user-roast pipeline tuning. Per-guild overrides in `guild_config`
-  // (resolved via getEffectiveRoastKnobs); these are the fallback defaults.
-  ROAST_MAX_TOOL_ITERATIONS: intFromEnv(3),
-  ROAST_HYPOTHESIZE_MAX_TOOL_ITERATIONS: intFromEnv(4),
-  ROAST_MAX_MESSAGES_FETCHED: intFromEnv(1500),
-  ROAST_TIMEOUT_MS: intFromEnv(30_000),
-  ROAST_TEMPERATURE_SHARP: floatFromEnv(0.95),
-  ROAST_TEMPERATURE_BRUTAL: floatFromEnv(1.0),
-  ROAST_THINKING_BUDGET: intFromEnv(0),
-  // Soft floor on synthesis tool calls. If the model emits a final text
-  // turn with fewer calls than this, the loop re-prompts once asking it to
-  // dig deeper. 0 = no floor (current behavior).
-  ROAST_MIN_TOOL_CALLS: intFromEnv(0),
-  // If true, summarizeFingerprint omits the "ignores N channels" line +
-  // hour/length histograms when feeding the model — useful to A/B whether
-  // channel-monoculture jokes go away.
-  ROAST_DEEMPHASIZE_CHANNEL_DIST: boolFromEnv(false),
-
-  // user-roast retention (days)
-  ACTIVITY_RECENT_RETENTION_DAYS: intFromEnv(30),
-  ACTIVITY_HOURLY_RETENTION_DAYS: intFromEnv(30),
-  INTERACTIONS_RETENTION_DAYS: intFromEnv(30),
-  ROAST_HISTORY_RETENTION_DAYS: intFromEnv(30),
-  // Verbatim message text for the roast hot-path. Hard cap, no opt-in for
-  // longer retention. Defaults to 7 days; minimum 1 day.
-  MESSAGE_CONTENT_RETENTION_DAYS: intFromEnv(7),
 
   // Internal bot↔web HTTP API. Optional; if INTERNAL_API_TOKEN is unset the
   // bot does not start the server and the web app hides owner debug pages.

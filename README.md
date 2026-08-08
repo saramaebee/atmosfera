@@ -1,9 +1,6 @@
 # atmosfera
 
-A Discord bot with two halves:
-
-- **Climate.** 15 years of hourly weather data turned into climatology charts for any city — temperature heatmaps, muggy probability, wet-day probability, two-city comparisons — with optional AI-generated roasts of the climate.
-- **Server-member roasting.** Opt-in indexing of message activity patterns (length, timing, channels, reply graph), turned into AI-generated roasts of a member based on how they actually behave in chat. Privacy controls (`/privacy`, per-user opt-out, brutal-tone opt-in) and per-guild RBAC (`/permissions`) live alongside it.
+A Discord bot for climate charts: 15 years of hourly weather data turned into climatology charts for any city — temperature heatmaps, muggy probability, wet-day probability, two-city comparisons. Privacy disclosure (`/privacy`) and per-guild RBAC (`/permissions`) live alongside it.
 
 Climate data is sourced from [Open-Meteo](https://open-meteo.com) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
@@ -28,23 +25,12 @@ The muggy-probability comparison: Tokyo's monsoon season hits 100% in early Augu
 | `/wet <city>` | Wet-day probability (≥ 1 mm of rain) |
 | `/compare <city_a> <city_b> [chart]` | Both cities side-by-side. `chart` choices: `heatmap`, `muggy`, `wetday`, `all` |
 
-**Server-member roasting** (admins enable indexing per guild via `/roast-setup`; users can opt out via `/privacy`):
+**Server tools:**
 
 | Command | What it does |
 | --- | --- |
-| `/roast <user> [brutal] [length]` | Roast based on the target's message-activity patterns |
-| `/pinned-roast` | Pin / vote on roasts in a server gallery |
-| `/privacy` | View what's stored, opt out of indexing, view/export your data |
+| `/privacy` | View what's stored and what's sent to third parties |
 | `/permissions` | Per-guild RBAC: grant/revoke command access for users or roles (admin) |
-| `/roast-setup`, `/roast-config`, `/roast-user-config`, `/roast-knobs` | Indexing toggle and per-guild knobs (admin) |
-
-Every chart command also accepts three optional roast options:
-
-- `tone` — `affectionate`, `snarky` (default), `deadpan`, `dramatic`, `existential`
-- `culture` — bool. When `true` (default), the roast may reference culture-meets-climate phenomena (`tsuyu`, siesta, sweater season, etc.)
-- `length` — `1-sentence` (default), `2-sentences`, `paragraph`
-
-Setting any of the three turns roasting on; the AI-generated text replaces the chart caption. Roasts are only available when `GEMINI_API_KEY` is set; otherwise commands behave normally.
 
 **Disambiguation**: when a city name is ambiguous (e.g. "Columbia" — there are four in the US alone), the bot replies with an ephemeral dropdown so only the invoker sees the picker. A "save as alias" toggle persists the pick so the next time that user types the same query, it resolves instantly.
 
@@ -70,7 +56,6 @@ You can also iterate on charts without Discord:
 ```bash
 bun run render "Tokyo" "Reykjavik" --chart heatmap --out out/tk-vs-rk.png
 bun run render "Buenos Aires" --chart muggy
-bun scripts/smoke/roast.ts   # generates out/roast-samples.md (needs GEMINI_API_KEY)
 ```
 
 ---
@@ -87,10 +72,9 @@ packages/
   climate/               Historical fetch + climatology aggregation + Gaussian smoothing
   charts/                D3 + Resvg renderers (muggy, wet-day, temperature heatmap) + twilight overlay
   db/                    Drizzle ORM over bun:sqlite (cities, aliases) + migrations
-  roast/                 Gemini-flavored climate roasts. Optional (no key = no roast).
 scripts/
   render.ts              CLI driver — same renderers, no Discord roundtrip
-  smoke/                 Resvg + roast quality gates
+  smoke/                 Resvg quality gate
 ```
 
 ### Data flow
@@ -109,9 +93,8 @@ chart renderers (SVG) + Resvg rasterizer
 ```
 
 - **Raw cache** is per `(location, year)` — one fetch per year per city, ever.
-- **Cube cache** keys on `(location, cube version)`. Bumping `CUBE_VERSION` in `packages/climate/src/types.ts` automatically invalidates downstream charts and roasts.
+- **Cube cache** keys on `(location, cube version)`. Bumping `CUBE_VERSION` in `packages/climate/src/types.ts` automatically invalidates downstream charts.
 - **Chart cache** keys on `(kind, lat, lon, cube version)`. Repeat commands skip Resvg entirely.
-- **Roast cache** keys on `(mode, cubes, tone, culture, length)`. Same params on same cubes = same text forever.
 
 ### Why these choices
 
@@ -119,7 +102,7 @@ chart renderers (SVG) + Resvg rasterizer
 - **Open-Meteo** as the only weather provider — free, no key, well-documented, generous rate limits, returns local-time hourly data via `timezone=auto`.
 - **SVG-first rendering** with D3 + Resvg — fast deterministic rasterization, no headless browser, no canvas native deps. Heatmap is ~17,000 SVG rects; rasterizes in ~500 ms.
 - **Filesystem caches over a database** — climatology data is large and write-once; SQLite is for queryable state (cities, aliases). Mixing the two would make the schema noisy without performance benefit.
-- **Gemini Flash** for roasts — generous free tier, same SDK swaps to Vertex AI on GCP, `thinkingBudget: 0` keeps output snappy and prevents mid-sentence truncation.
+- **Gemini Flash** for `/explain` — generous free tier, same SDK swaps to Vertex AI on GCP, `thinkingBudget: 0` keeps output snappy and prevents mid-sentence truncation.
 
 ---
 
@@ -148,7 +131,7 @@ If you change smoothing, aggregation, or the cube schema:
 
 1. Bump `CUBE_VERSION` in `packages/climate/src/types.ts`.
 2. Cube files at `.cache/cubes/*/cube-<old>.json` become dead weight (safe to delete).
-3. Chart cache + roast cache invalidate automatically (cube version is part of their keys).
+3. Chart cache invalidates automatically (cube version is part of its key).
 
 ---
 

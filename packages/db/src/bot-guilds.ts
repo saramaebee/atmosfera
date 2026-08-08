@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Db } from './client';
-import { type BotGuild, botGuilds, guildConfig } from './schema';
+import { type BotGuild, botGuilds } from './schema';
 
 export interface UpsertBotGuildInput {
   guildId: string;
@@ -93,8 +93,6 @@ export interface BotGuildStats {
   joinedLast7d: number;
   joinedLast30d: number;
   leftLast30d: number;
-  indexingEnabledCount: number;
-  brutalAllowedCount: number;
 }
 
 export function botGuildStats(db: Db): BotGuildStats {
@@ -126,24 +124,10 @@ export function botGuildStats(db: Db): BotGuildStats {
     .where(gte(botGuilds.leftAt, d30))
     .get();
 
-  const indexing = db
-    .select({ c: sql<number>`count(*)` })
-    .from(guildConfig)
-    .where(eq(guildConfig.indexingEnabled, 1))
-    .get();
-
-  const brutal = db
-    .select({ c: sql<number>`count(*)` })
-    .from(guildConfig)
-    .where(eq(guildConfig.brutalAllowed, 1))
-    .get();
-
   return {
     activeCount: active?.c ?? 0,
     joinedLast7d: j7?.c ?? 0,
     joinedLast30d: j30?.c ?? 0,
     leftLast30d: l30?.c ?? 0,
-    indexingEnabledCount: indexing?.c ?? 0,
-    brutalAllowedCount: brutal?.c ?? 0,
   };
 }

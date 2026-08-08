@@ -1,13 +1,8 @@
-import {
-  PRIVACY_AUDIT,
-  PRIVACY_DATA,
-  PRIVACY_POLICY_VERSION,
-  PRIVACY_SUMMARY,
-} from '@atmosfera/user-roast';
 import { Command } from '@sapphire/framework';
 import { EmbedBuilder } from 'discord.js';
 import { chatInputRegisterOptions } from '../lib/commandScope';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { PRIVACY_AUDIT, PRIVACY_POLICY_VERSION, PRIVACY_SUMMARY } from '../lib/privacy-policy';
 
 const SCOPE = { baseline: 'everyone', protected: true } as const;
 registerScope('privacy', SCOPE);
@@ -41,11 +36,6 @@ export class PrivacyCommand extends Command {
             )
             .addSubcommand((sub) =>
               sub
-                .setName('data')
-                .setDescription("What's tracked per message and what's never stored."),
-            )
-            .addSubcommand((sub) =>
-              sub
                 .setName('audit-log')
                 .setDescription('What the bot logs about admin actions, and why.'),
             ),
@@ -60,9 +50,6 @@ export class PrivacyCommand extends Command {
     let embed: EmbedBuilder;
 
     switch (sub) {
-      case 'data':
-        embed = buildDataEmbed();
-        break;
       case 'audit-log':
         embed = buildAuditEmbed();
         break;
@@ -86,23 +73,8 @@ function buildSummaryEmbed(): EmbedBuilder {
       { name: 'Commitments', value: bulletList(PRIVACY_SUMMARY.commitments) },
     )
     .setFooter({
-      text: `Policy version ${PRIVACY_POLICY_VERSION} · /privacy data · /privacy audit-log`,
+      text: `Policy version ${PRIVACY_POLICY_VERSION} · /privacy audit-log`,
     });
-}
-
-function buildDataEmbed(): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle('atmosfera — message data tracking')
-    .setColor(0x88aaff)
-    .setDescription(
-      'When a server has `/roast-setup` enabled, the bot derives the following stats from each message and stores only the stats — never the content.',
-    )
-    .addFields(
-      { name: 'Extracted and stored', value: bulletList(PRIVACY_DATA.extracted) },
-      { name: 'Read in-memory, then discarded', value: bulletList(PRIVACY_DATA.readNotStored) },
-      { name: 'Retention', value: bulletList(PRIVACY_DATA.retention) },
-    )
-    .setFooter({ text: `Policy version ${PRIVACY_POLICY_VERSION}` });
 }
 
 function buildAuditEmbed(): EmbedBuilder {

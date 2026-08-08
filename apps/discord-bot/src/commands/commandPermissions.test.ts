@@ -45,7 +45,7 @@ describe('command permission/scope hygiene', () => {
     }
 
     const registered = listScopes();
-    // Sanity check — at least these core commands must be present.
+    // Sanity check — at least the core commands must be present.
     const expected = [
       'ping',
       'now',
@@ -53,12 +53,7 @@ describe('command permission/scope hygiene', () => {
       'wet',
       'muggy',
       'compare',
-      'roast',
-      'roast-user-config',
-      'pinned-roast',
       'privacy',
-      'roast-setup',
-      'roast-config',
       'permissions',
     ];
     for (const name of expected) {

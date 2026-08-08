@@ -1,5 +1,4 @@
 import { listAuditEvents } from '@atmosfera/db';
-import { getGuildConfig } from '@atmosfera/user-roast';
 import { Hono } from 'hono';
 import { canAdminister } from '../auth/authz';
 import { resolveGuild } from '../middleware/requireGuild';
@@ -16,7 +15,6 @@ guildRoutes.get('/:guildId', (c) => {
   if (r instanceof Response) return r;
   const { session, guild, role } = r;
   const isAdmin = canAdminister(role);
-  const cfg = getGuildConfig(guild.guildId);
   const recent = isAdmin ? listAuditEvents(getWebDb(), { guildId: guild.guildId, limit: 5 }) : [];
 
   const sidebar = (
@@ -42,13 +40,6 @@ guildRoutes.get('/:guildId', (c) => {
             ) : null}
           </div>
         </div>
-      </div>
-
-      <div class="stat-grid">
-        <ConfigTile label="Indexing" on={cfg.indexing_enabled} />
-        <ConfigTile label="Slash commands" on={cfg.slash_enabled} />
-        <ConfigTile label="Message commands" on={cfg.message_enabled} />
-        <ConfigTile label="Brutal allowed" on={cfg.brutal_allowed} />
       </div>
 
       {isAdmin ? (
@@ -92,23 +83,11 @@ guildRoutes.get('/:guildId', (c) => {
         <div class="card">
           <h2>Moderation</h2>
           <p class="muted">
-            You don't have Manage Server here — moderation pages (audit log, config, permissions)
-            aren't available. Open <a href={`/g/${guild.guildId}/me`}>my settings</a> to adjust your
-            own preferences.
+            You don't have Manage Server here — moderation pages (audit log, permissions) aren't
+            available.
           </p>
         </div>
       )}
     </Layout>,
   );
 });
-
-function ConfigTile(props: { label: string; on: boolean }) {
-  return (
-    <div class="stat-tile">
-      <div class="label">{props.label}</div>
-      <div style="margin-top:4px;">
-        <span class={`pill ${props.on ? 'on' : 'off'}`}>{props.on ? 'on' : 'off'}</span>
-      </div>
-    </div>
-  );
-}

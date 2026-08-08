@@ -26,7 +26,7 @@ import {
   wetBulbTakeaway,
 } from './wetbulb-format';
 
-export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast' | 'now';
+export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'now';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
 // URL wrapped in <…> so Discord suppresses the link-preview embed while keeping
@@ -38,9 +38,6 @@ export interface RenderRequest {
   cities: City[];
   /** Only meaningful for command='compare'. */
   chart?: CompareChartChoice;
-  /** When present, the roast text becomes the message content and the
-   * usual headline moves to a small footer line. */
-  roast?: string;
   /** Attach a per-city wet-bulb heat-stress embed beneath the chart. */
   wetBulb?: boolean;
 }
@@ -120,12 +117,6 @@ function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): s
   return `${head}\n-# ${OPEN_METEO_ATTRIBUTION}`;
 }
 
-function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): string {
-  const window = `climatology ${cubes[0]!.window.startYear}–${cubes[0]!.window.endYear}`;
-  const cityList = cities.map((c) => cityDisplayName(c)).join(' vs ');
-  return `${roast}\n-# ${cityList} · ${window} · ${OPEN_METEO_ATTRIBUTION}`;
-}
-
 async function buildNowMessage(city: City): Promise<RenderedMessage> {
   const forecast = await fetchForecastNow(city.latitude, city.longitude);
   const upcoming = selectUpcomingHours(forecast);
@@ -149,9 +140,9 @@ async function buildNowMessage(city: City): Promise<RenderedMessage> {
  * followUp.
  */
 export async function buildRenderedMessage(req: RenderRequest): Promise<RenderedMessage> {
-  // '/now' is forecast-shaped, not climatology-shaped: no cubes, no roast, no
-  // wet-bulb. Branching here (rather than in each caller) keeps the
-  // disambiguation resume path working for it unchanged.
+  // '/now' is forecast-shaped, not climatology-shaped: no cubes, no wet-bulb.
+  // Branching here (rather than in each caller) keeps the disambiguation
+  // resume path working for it unchanged.
   if (req.command === 'now') return buildNowMessage(req.cities[0]!);
 
   const loaded = await Promise.all(
@@ -204,9 +195,7 @@ export async function buildRenderedMessage(req: RenderRequest): Promise<Rendered
     }
   }
 
-  const content = req.roast
-    ? roastedContent(cities, cubes, req.roast)
-    : headline(req.command, cities, cubes);
+  const content = headline(req.command, cities, cubes);
 
   const embeds = req.wetBulb ? [buildWetBulbEmbed(paired)] : undefined;
 

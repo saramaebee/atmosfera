@@ -78,6 +78,13 @@
       "when": 1779834810396,
       "tag": "0010_sturdy_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1786198110353,
+      "tag": "0011_drop_roast_tables",
+      "breakpoints": true
     }
   ]
 }

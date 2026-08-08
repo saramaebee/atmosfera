@@ -59,4 +59,3 @@ export {
   getDiscordUsers,
   type UpsertDiscordUserInput,
 } from './discord-users';
-export { listNotableUserSettings, type NotableUserSetting } from './user-settings';

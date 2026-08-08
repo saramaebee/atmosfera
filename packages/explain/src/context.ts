@@ -1,18 +1,14 @@
 import type { ExplainGuildRoleRow } from '@atmosfera/db';
-import { getMessagesByChannelTime } from '@atmosfera/user-roast';
 import type { GuildMember, GuildTextBasedChannel, Message } from 'discord.js';
 import { listGuildRoles } from './db/roles';
 import type { ContextMessage, ExplainLanguage, ExplainTier, TaggedTier } from './types';
 
-const WINDOW_MS = 30 * 60 * 1000;
 const MAX_BEFORE = 30;
 const MAX_AFTER = 15;
 
 /**
- * Surrounding-context fetch around a target message. Prefers the indexed
- * messages_recent table (populated by the messageActivity listener); falls
- * back to a live Discord fetch when the indexed slice is thin or empty
- * (target older than 7d, channel not indexed, etc.).
+ * Surrounding-context fetch around a target message: a single live Discord
+ * fetch of ~50 messages around the anchor, which is plenty for both sides.
  *
  * Returns messages in chronological order with the target message guaranteed
  * to be included and flagged.
@@ -22,34 +18,8 @@ export async function fetchSurroundingContext(params: {
   targetMessage: Message;
 }): Promise<RawContext> {
   const { channel, targetMessage } = params;
-  const guildId = channel.guild.id;
-  const channelId = channel.id;
-  const targetTime = targetMessage.createdTimestamp;
-  const fromMs = targetTime - WINDOW_MS;
-  const toMs = targetTime + WINDOW_MS;
 
-  const indexed = safeIndexedFetch({ guildId, channelId, fromMs, toMs });
-
-  // If the indexed slice has < a handful of messages OR doesn't contain the
-  // target, fall back to a live fetch. The live fetch returns ~50 messages
-  // around the anchor in a single API call, which is plenty for both sides.
-  let usedFallback = false;
-  let messages: Array<{
-    id: string;
-    channelId: string;
-    authorId: string;
-    createdAt: number;
-    content: string;
-    isReply: boolean;
-    replyToId: string | null;
-  }> = indexed;
-
-  const hasTarget = indexed.some((m) => m.id === targetMessage.id);
-  if (indexed.length < 5 || !hasTarget) {
-    const live = await liveFetchAround(channel, targetMessage.id);
-    usedFallback = true;
-    messages = mergeById(indexed, live);
-  }
+  let messages = await liveFetchAround(channel, targetMessage.id);
 
   // Sort chronologically and clamp around the target.
   messages.sort((a, b) => a.createdAt - b.createdAt);
@@ -74,7 +44,7 @@ export async function fetchSurroundingContext(params: {
     messages = [...before, messages[targetIdx]!, ...after];
   }
 
-  return { messages, targetMessageId: targetMessage.id, usedFallback };
+  return { messages, targetMessageId: targetMessage.id };
 }
 
 interface RawContext {
@@ -88,37 +58,6 @@ interface RawContext {
     replyToId: string | null;
   }>;
   targetMessageId: string;
-  usedFallback: boolean;
-}
-
-function safeIndexedFetch(params: {
-  guildId: string;
-  channelId: string;
-  fromMs: number;
-  toMs: number;
-}): RawContext['messages'] {
-  try {
-    const rows = getMessagesByChannelTime({
-      guildId: params.guildId,
-      channelId: params.channelId,
-      fromMs: params.fromMs,
-      toMs: params.toMs,
-      limit: MAX_BEFORE + MAX_AFTER + 5,
-    });
-    return rows.map((r) => ({
-      id: r.id,
-      channelId: r.channelId,
-      authorId: r.authorId,
-      createdAt: r.createdAt,
-      content: r.content,
-      isReply: r.isReply,
-      replyToId: r.replyToId,
-    }));
-  } catch {
-    // user-roast DB not initialized in this process (e.g. tests). Empty slice
-    // forces the live-fetch path.
-    return [];
-  }
 }
 
 async function liveFetchAround(
@@ -135,13 +74,6 @@ async function liveFetchAround(
     isReply: m.reference?.messageId != null,
     replyToId: m.reference?.messageId ?? null,
   }));
-}
-
-function mergeById<T extends { id: string }>(a: T[], b: T[]): T[] {
-  const map = new Map<string, T>();
-  for (const x of a) map.set(x.id, x);
-  for (const x of b) map.set(x.id, x);
-  return [...map.values()];
 }
 
 /**

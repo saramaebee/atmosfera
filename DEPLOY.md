@@ -51,7 +51,7 @@ Required:
 Optional but recommended:
 
 - `DISCORD_DEV_GUILD_ID` — only register commands to one guild (instant; without this they go global, ~1 hour to propagate)
-- `GEMINI_API_KEY` — from https://aistudio.google.com/apikey (free, generous tier). Required for `/roast` and the roast options on chart commands.
+- `GEMINI_API_KEY` — from https://aistudio.google.com/apikey (free, generous tier). Required for `/explain`.
 - `NOMINATIM_USER_AGENT` — only if you ever extend geocoding fallback
 
 ## 4. Start it
@@ -121,6 +121,20 @@ sudo systemctl restart atmosfera
 ```
 
 The next push to `main` will pull you forward again, so this is a temporary lever — for a real rollback push a revert commit.
+
+### One-off: scrub disk pages after the roast-feature removal
+
+The first deploy that includes migration `0011_drop_roast_tables` drops all
+roast tables (including 7 days of stored message text) in-process at boot.
+`DROP TABLE` frees the pages but doesn't zero them, and the WAL may still hold
+pre-drop page images — run a one-time VACUUM + checkpoint afterwards to
+actually scrub and reclaim the space:
+
+```bash
+sudo systemctl stop atmosfera atmosfera-web   # exclusive access, takes seconds
+cd ~/atmosfera && ~/.bun/bin/bun -e "const {Database}=require('bun:sqlite');const d=new Database('data/atmosfera.db');d.exec('VACUUM');d.exec('PRAGMA wal_checkpoint(TRUNCATE)');d.close()"
+sudo systemctl start atmosfera atmosfera-web
+```
 
 ## Resource sizing notes
 

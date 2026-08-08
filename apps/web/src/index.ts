@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { setExplainDb } from '@atmosfera/explain';
-import { setUserRoastDb } from '@atmosfera/user-roast';
 import { app } from './app';
 import { setWebDb } from './state';
 
@@ -31,9 +30,8 @@ mkdirSync(dirname(dbPath), { recursive: true });
 const db = createDb(dbPath);
 migrateDb(db);
 setWebDb(db);
-// user-roast keeps its own raw-SQL queries against the same SQLite file;
+// explain keeps its own raw-SQL queries against the same SQLite file;
 // hand it the underlying bun:sqlite client so its DB-backed getters work.
-setUserRoastDb(db.$client);
 setExplainDb(db.$client);
 
 const port = env.WEB_PORT;
