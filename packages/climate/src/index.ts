@@ -8,6 +8,13 @@ export {
   WET_DAY_MM,
 } from './aggregate';
 export { fetchHistoricalYear, cacheKey, rawCachePath } from './openmeteo';
+export {
+  fetchForecastNow,
+  forecastResponseSchema,
+  selectUpcomingHours,
+  type ForecastNow,
+  type UpcomingHour,
+} from './forecast';
 export { loadClimateCube, cubeCachePath } from './cube';
 export {
   gaussianKernel1d,

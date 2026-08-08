@@ -7,6 +7,17 @@ export {
 } from './muggy';
 export { renderTemperatureComparisonSvg, HEATMAP_WIDTH } from './temperature';
 export { svgToPng } from './raster';
+export {
+  type NowCardHourEntry,
+  type NowCardInput,
+  NOW_CARD_WIDTH,
+  compassPoint,
+  hourLabel,
+  nowCardInputFromForecast,
+  renderNowCardSvg,
+} from './nowcard';
+export { type WeatherIconKey, type WeatherInfo, weatherInfo } from './weather-codes';
+export { weatherIconSvg } from './weather-icons';
 export { TEMPERATURE_BANDS, colorForCelsius, bandForCelsius } from './palette';
 export { computeTwilightYear, darkHours } from './twilight';
 export type { DayTwilight } from './twilight';

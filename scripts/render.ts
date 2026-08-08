@@ -3,18 +3,21 @@ import { dirname } from 'node:path';
 import {
   type CitySeries,
   compareCubesCanonical,
+  nowCardInputFromForecast,
   renderChartCached,
   renderMuggyComparisonSvg,
+  renderNowCardSvg,
   renderTemperatureComparisonSvg,
   renderWetDayComparisonSvg,
+  svgToPng,
 } from '@atmosfera/charts';
-import { loadClimateCube } from '@atmosfera/climate';
+import { fetchForecastNow, loadClimateCube, selectUpcomingHours } from '@atmosfera/climate';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { formatCandidate, resolveCity } from '@atmosfera/geocode';
 
-type ChartKind = 'muggy' | 'heatmap' | 'wetday';
-const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap', 'wetday'];
+type ChartKind = 'muggy' | 'heatmap' | 'wetday' | 'now';
+const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap', 'wetday', 'now'];
 
 interface Args {
   cities: string[];
@@ -46,7 +49,7 @@ function parseArgs(argv: string[]): Args {
 
   if (cities.length === 0) {
     throw new Error(
-      'usage: bun run render <city> [<city>] [--chart muggy|heatmap] [--out path.png]',
+      `usage: bun run render <city> [<city>] [--chart ${CHART_KINDS.join('|')}] [--out path.png]`,
     );
   }
   return { cities, chart, out };
@@ -96,9 +99,27 @@ async function main(): Promise<void> {
 
     const city = result.city;
     const regionPart = city.region ? `, ${city.region}` : '';
+    const displayName = `${city.canonicalName}${regionPart}, ${city.country}`;
     process.stderr.write(
-      `  → ${city.canonicalName}${regionPart}, ${city.country}  (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}, tz=${city.timezone})  [${result.via}]\n`,
+      `  → ${displayName}  (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}, tz=${city.timezone})  [${result.via}]\n`,
     );
+
+    if (args.chart === 'now') {
+      if (args.cities.length > 1) {
+        throw new Error('--chart now renders a single city.');
+      }
+      const forecast = await fetchForecastNow(city.latitude, city.longitude);
+      const upcoming = selectUpcomingHours(forecast);
+      const png = svgToPng(
+        renderNowCardSvg(nowCardInputFromForecast(displayName, forecast, upcoming)),
+      );
+      const outPath = args.out ?? `out/now-${slugify(city.canonicalName)}.png`;
+      mkdirSync(dirname(outPath), { recursive: true });
+      writeFileSync(outPath, png);
+      const seconds = ((performance.now() - t0) / 1000).toFixed(2);
+      process.stderr.write(`\nwrote ${outPath} (${png.length} bytes) in ${seconds}s\n`);
+      return;
+    }
 
     const cube = await loadClimateCube({
       latitude: city.latitude,
