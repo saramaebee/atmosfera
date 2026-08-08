@@ -320,10 +320,14 @@ export class PermissionsCommand extends Command {
 }
 
 function buildCommandChoices(): Array<{ name: string; value: string }> {
-  const all = [...listScopes().entries()].map(([name, scope]) => ({
-    name: scope.protected ? `${name}  (protected)` : name,
-    value: name,
-  }));
+  // ownerOnly commands are excluded: the precondition never reaches the RBAC
+  // check for them, so per-guild rules would be dead weight.
+  const all = [...listScopes().entries()]
+    .filter(([, scope]) => !scope.ownerOnly)
+    .map(([name, scope]) => ({
+      name: scope.protected ? `${name}  (protected)` : name,
+      value: name,
+    }));
   all.sort((a, b) => a.value.localeCompare(b.value));
   return all.slice(0, MAX_COMMAND_CHOICES);
 }

@@ -12,6 +12,7 @@ import { getScope, isBotOwner } from '../lib/permissions';
 export const ATMOSFERA_SCOPE_IDENTIFIERS = {
   Admin: 'AtmosferaScopeAdmin',
   DeniedRule: 'AtmosferaScopeDeniedRule',
+  OwnerOnly: 'AtmosferaScopeOwnerOnly',
   ServerOnly: 'AtmosferaScopeServerOnly',
 } as const;
 
@@ -50,6 +51,16 @@ export class AtmosferaScopePrecondition extends AllFlowsPrecondition {
 
     const userId = interaction.user.id;
     const isProtected = scope.protected === true;
+
+    // Owner-only commands short-circuit everything else: guild/RBAC/baseline
+    // evaluation is meaningless when only DISCORD_OWNER_IDS may ever run it.
+    if (scope.ownerOnly) {
+      if (isBotOwner(userId)) return this.ok();
+      return this.error({
+        identifier: ATMOSFERA_SCOPE_IDENTIFIERS.OwnerOnly,
+        message: 'This command is restricted to the bot owner.',
+      });
+    }
 
     // Owner override short-circuit. Bot owners bypass the user-scope check
     // but not requiredClientPermissions (Sapphire enforces that separately).

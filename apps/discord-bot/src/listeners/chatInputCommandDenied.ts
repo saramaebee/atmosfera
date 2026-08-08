@@ -41,6 +41,8 @@ function formatMessage(error: UserError): string {
       return '🔒 You need the **Manage Server** permission, or a role/user grant via `/permissions grant`, to run that.';
     case ATMOSFERA_SCOPE_IDENTIFIERS.DeniedRule:
       return "🚫 A server admin has blocked this command for you here. Talk to them if you think that's a mistake.";
+    case ATMOSFERA_SCOPE_IDENTIFIERS.OwnerOnly:
+      return '🔐 That command is restricted to the bot owner.';
     case ATMOSFERA_SCOPE_IDENTIFIERS.ServerOnly:
       return '📍 That command only works inside a server.';
     case 'preconditionClientPermissions':
