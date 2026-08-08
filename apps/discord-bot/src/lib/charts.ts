@@ -1,12 +1,20 @@
 import {
   type CitySeries,
   compareCubesCanonical,
+  nowCardInputFromForecast,
   renderChartCached,
   renderMuggyComparisonSvg,
+  renderNowCardSvg,
   renderTemperatureComparisonSvg,
   renderWetDayComparisonSvg,
+  svgToPng,
 } from '@atmosfera/charts';
-import { type ClimateCube, loadClimateCube } from '@atmosfera/climate';
+import {
+  type ClimateCube,
+  fetchForecastNow,
+  loadClimateCube,
+  selectUpcomingHours,
+} from '@atmosfera/climate';
 import type { City } from '@atmosfera/db';
 import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
 import { cityDisplayName } from './cities';
@@ -18,7 +26,7 @@ import {
   wetBulbTakeaway,
 } from './wetbulb-format';
 
-export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast';
+export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'roast' | 'now';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
 
 // URL wrapped in <…> so Discord suppresses the link-preview embed while keeping
@@ -118,6 +126,22 @@ function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): st
   return `${roast}\n-# ${cityList} · ${window} · ${OPEN_METEO_ATTRIBUTION}`;
 }
 
+async function buildNowMessage(city: City): Promise<RenderedMessage> {
+  const forecast = await fetchForecastNow(city.latitude, city.longitude);
+  const upcoming = selectUpcomingHours(forecast);
+  const input = nowCardInputFromForecast(cityDisplayName(city), forecast, upcoming);
+
+  // Not renderChartCached: that cache is keyed on lat/lon + cube version and
+  // persists forever, which is wrong for a forecast. The render itself is
+  // milliseconds and the 10-minute forecast data cache absorbs repeat calls.
+  const png = svgToPng(renderNowCardSvg(input));
+
+  return {
+    content: `**${cityDisplayName(city)}** — current conditions & next 24 h.\n-# ${OPEN_METEO_ATTRIBUTION}`,
+    files: [new AttachmentBuilder(png, { name: `now-${slugify(city.canonicalName)}.png` })],
+  };
+}
+
 /**
  * Build the public message payload for any of the commands. Loads cubes,
  * rasterizes the appropriate SVG(s) (via renderChartCached — cache-hit returns
@@ -125,6 +149,11 @@ function roastedContent(cities: City[], cubes: ClimateCube[], roast: string): st
  * followUp.
  */
 export async function buildRenderedMessage(req: RenderRequest): Promise<RenderedMessage> {
+  // '/now' is forecast-shaped, not climatology-shaped: no cubes, no roast, no
+  // wet-bulb. Branching here (rather than in each caller) keeps the
+  // disambiguation resume path working for it unchanged.
+  if (req.command === 'now') return buildNowMessage(req.cities[0]!);
+
   const loaded = await Promise.all(
     req.cities.map((c) =>
       loadClimateCube({ latitude: c.latitude, longitude: c.longitude, timezone: c.timezone }),
