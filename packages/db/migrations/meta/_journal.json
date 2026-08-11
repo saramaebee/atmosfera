@@ -85,6 +85,13 @@
       "when": 1786198110353,
       "tag": "0011_drop_roast_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1786483108317,
+      "tag": "0012_drop_explain_tables",
+      "breakpoints": true
     }
   ]
 }

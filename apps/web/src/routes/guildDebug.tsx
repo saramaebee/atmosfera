@@ -212,9 +212,6 @@ function CommandsSection(props: { data: BotCommandsResponse }) {
     );
   }
 
-  const allCommands = [...data.global, ...data.guildScoped];
-  const hasExplain = allCommands.some((c) => c.name === 'Explain' && c.kind === 'message_context');
-
   return (
     <div class="card">
       <div class="card-header">
@@ -228,25 +225,6 @@ function CommandsSection(props: { data: BotCommandsResponse }) {
         been registered yet — usually that means the bot hasn't been restarted with the latest code,
         or a global registration is still propagating (can take up to ~1 hour).
       </p>
-
-      <div
-        class={`card-tight ${hasExplain ? '' : 'empty'}`}
-        style="margin:0 0 12px;padding:8px 12px;"
-      >
-        <strong>/Explain (message context-menu):</strong>{' '}
-        {hasExplain ? (
-          <>
-            <span class="badge badge-allow">registered</span> · Right-click any message and look
-            under <em>Apps</em>. (You may need to restart your Discord client once if it still
-            doesn't appear.)
-          </>
-        ) : (
-          <>
-            <span class="badge badge-deny">not found</span> · Bot hasn't registered this command
-            yet. Restart the bot, or wait for global propagation.
-          </>
-        )}
-      </div>
 
       {data.global.length > 0 ? <CommandsTable label="Global" rows={data.global} /> : null}
       {data.guildScoped.length > 0 ? (

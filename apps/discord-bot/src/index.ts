@@ -3,14 +3,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dbPathFromUrl, getEnv, isInternalApiEnabled } from '@atmosfera/config';
 import { type Db, createDb, migrateDb } from '@atmosfera/db';
-import { setExplainDb } from '@atmosfera/explain';
 import {
   ApplicationCommandRegistries,
   RegisterBehavior,
   SapphireClient,
   container,
 } from '@sapphire/framework';
-import { GatewayIntentBits, Partials } from 'discord.js';
+import { GatewayIntentBits } from 'discord.js';
 import { startInternalApi } from './internal-api';
 
 // Bulk-overwrite so commands that aren't in our registry (e.g. leftover
@@ -40,18 +39,10 @@ const db = createDb(dbPath);
 migrateDb(db);
 container.db = db;
 
-// explain carries its own raw-SQL queries; hand it the underlying bun:sqlite client.
-setExplainDb(db.$client);
-
 const client = new SapphireClient({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  // Guilds only — no privileged intents. Everything the bot does is
+  // interaction-driven; guild/channel/role caches come from the Guilds intent.
+  intents: [GatewayIntentBits.Guilds],
   loadMessageCommandListeners: false,
   loadDefaultErrorListeners: true,
   baseUserDirectory: here,

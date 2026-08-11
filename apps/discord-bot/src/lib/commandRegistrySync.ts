@@ -6,7 +6,6 @@ import type {
   Collection,
   Snowflake,
 } from 'discord.js';
-import { reconcileExplainCommand } from './explainCommandSync';
 
 /**
  * Runtime re-sync of application commands from Sapphire's in-memory registries.
@@ -44,7 +43,6 @@ export interface SyncResult {
   cleared: 'global' | { guildId: string } | null;
   /** Set when clear-other-scope was requested but couldn't run. */
   clearSkippedReason: string | null;
-  reconciledGuilds: string[];
   errors: Array<{ scope: string; message: string }>;
   durationMs: number;
 }
@@ -128,10 +126,7 @@ export interface ForceSyncOptions {
 }
 
 /**
- * Force-push the collected payloads to Discord and reconcile the Explain
- * context-menu command in every guild whose command list we overwrote (a guild
- * bulk-set deletes the dynamically-managed Explain command — see
- * listeners/explainCommandSync.ts).
+ * Force-push the collected payloads to Discord.
  *
  * Unlike Sapphire's startup overwrite, a scope with zero collected payloads is
  * skipped rather than `set([])`, so a routine dev-guild sync can never wipe
@@ -158,7 +153,6 @@ export async function forceSyncCommands(
     guilds: [],
     cleared: null,
     clearSkippedReason: null,
-    reconciledGuilds: [],
     errors: [],
     durationMs: 0,
   };
@@ -188,8 +182,6 @@ export async function forceSyncCommands(
     }
   }
 
-  const reconcileTargets = new Set(collected.byGuild.keys());
-
   if (opts.clearOtherScope) {
     if (opts.devGuildId) {
       try {
@@ -199,14 +191,9 @@ export async function forceSyncCommands(
         result.errors.push({ scope: 'global (clear)', message: errorMessage(err) });
       }
     } else if (opts.invokingGuildId) {
-      // Empty the invoking guild, then let the reconcile below re-create the
-      // Explain command when the guild's mode says it should exist. The brief
-      // absence is fine for a rare owner-run cleanup and avoids re-pushing
-      // fetched command JSON (whose extra fields Discord may not accept).
       try {
         await appCommands.set([], opts.invokingGuildId);
         result.cleared = { guildId: opts.invokingGuildId };
-        reconcileTargets.add(opts.invokingGuildId);
       } catch (err) {
         result.errors.push({
           scope: `${opts.invokingGuildId} (clear)`,
@@ -216,14 +203,6 @@ export async function forceSyncCommands(
     } else {
       result.clearSkippedReason =
         'global mode has no dev guild id — run this inside the guild you want cleared';
-    }
-  }
-
-  for (const guildId of reconcileTargets) {
-    // Best-effort by design: reconcileExplainCommand logs and swallows its own
-    // API errors, returning false instead of throwing.
-    if (await reconcileExplainCommand(client, guildId)) {
-      result.reconciledGuilds.push(guildId);
     }
   }
 

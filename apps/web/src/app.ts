@@ -4,8 +4,6 @@ import { authRoutes } from './auth/discord';
 import { sessionMiddleware } from './auth/session';
 import { adminRoutes } from './routes/admin';
 import { auditRoutes } from './routes/audit';
-import { explainChannelsRoutes } from './routes/explainChannels';
-import { explainRolesRoutes } from './routes/explainRoles';
 import { guildRoutes } from './routes/guild';
 import { guildDebugRoutes } from './routes/guildDebug';
 import { guildsRoutes } from './routes/guilds';
@@ -24,8 +22,6 @@ app.route('/guilds', guildsRoutes);
 app.route('/g', guildRoutes);
 app.route('/g', auditRoutes);
 app.route('/g', permsRoutes);
-app.route('/g', explainRolesRoutes);
-app.route('/g', explainChannelsRoutes);
 app.route('/g', guildDebugRoutes);
 app.route('/admin', adminRoutes);
 

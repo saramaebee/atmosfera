@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
-import { setExplainDb } from '@atmosfera/explain';
 import { app } from './app';
 import { setWebDb } from './state';
 
@@ -30,9 +29,6 @@ mkdirSync(dirname(dbPath), { recursive: true });
 const db = createDb(dbPath);
 migrateDb(db);
 setWebDb(db);
-// explain keeps its own raw-SQL queries against the same SQLite file;
-// hand it the underlying bun:sqlite client so its DB-backed getters work.
-setExplainDb(db.$client);
 
 const port = env.WEB_PORT;
 console.log(`web: listening on http://localhost:${port}`);

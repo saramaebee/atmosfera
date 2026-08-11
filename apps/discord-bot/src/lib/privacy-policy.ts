@@ -11,17 +11,15 @@
  * and bump PRIVACY_POLICY_VERSION. Keep PRIVACY.md in sync manually.
  */
 
-export const PRIVACY_POLICY_VERSION = '2026-08-08.1';
+export const PRIVACY_POLICY_VERSION = '2026-08-11.1';
 
 export const PRIVACY_SUMMARY = {
   thirdParties: [
     'Open-Meteo — receives city coordinates / timezone for climate fetches. No user data.',
     'Nominatim (geocoding fallback) — receives city query strings. No user data.',
-    "Google Gemini — for `/explain` only: receives the target message and a short window of surrounding channel messages (fetched live from Discord, not stored). Gemini inference-only; no data is used to train Google's models.",
   ],
   retained: [
     'City lookup results and the aliases created when you pick a disambiguation candidate.',
-    'Per-guild `/explain` configuration (allowed channels, role → language/tier mappings).',
     'Command permission rules and the audit log (admin actions).',
     'Web dashboard sessions (login state for server admins).',
     'No message content and no per-user activity data are stored.',
@@ -29,7 +27,7 @@ export const PRIVACY_SUMMARY = {
   neverStored: ['Direct messages.', 'Message content, embeds, attachments, reactions, components.'],
   commitments: [
     'Data is used solely to operate, debug, and improve atmosfera. Never sold or shared beyond the listed third-party pipeline.',
-    'Never used to train any models. Gemini calls are inference-only.',
+    'Never used to train any models.',
     'See `/privacy audit-log` for what we log about admin actions.',
   ],
 } as const;
@@ -41,7 +39,7 @@ export const PRIVACY_AUDIT = {
   ],
   whatLogged: [
     'Actor user ID (who took the action).',
-    'Event type (e.g. `permission.grant`, `explain.mode.set`, `explain.role.add`).',
+    'Event type (e.g. `permission.grant`, `permission.revoke`).',
     'Subject (the command or guild config the action affected).',
     'Per-event metadata — for permission rules, the principal (role/user ID) and before/after effect; for config changes, the before/after values.',
     'Timestamp.',

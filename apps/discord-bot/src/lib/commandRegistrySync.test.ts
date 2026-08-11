@@ -39,7 +39,7 @@ describe('collectRegisteredCommandPayloads', () => {
     expect(collected.byGuild.get('G2')?.map((x) => x.data.name)).toEqual(['multi']);
   });
 
-  it('contributes nothing for a command with empty apiCalls (the Explain case)', () => {
+  it('contributes nothing for a command with empty apiCalls', () => {
     const collected = collectRegisteredCommandPayloads([fakeCommand([])]);
 
     expect(collected.global).toHaveLength(0);
