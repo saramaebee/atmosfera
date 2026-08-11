@@ -126,9 +126,6 @@ function formatResult(result: SyncResult, devGuildId: string | undefined): strin
   if (result.clearSkippedReason) {
     lines.push(`Clear skipped: ${result.clearSkippedReason}`);
   }
-  if (result.reconciledGuilds.length > 0) {
-    lines.push(`Explain reconciled: ${result.reconciledGuilds.length} guild(s)`);
-  }
   lines.push(
     result.errors.length === 0
       ? 'Errors: none'

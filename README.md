@@ -45,7 +45,7 @@ git clone https://github.com/saramaebee/atmosfera.git
 cd atmosfera
 bun install
 cp .env.example .env
-# Fill in DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_DEV_GUILD_ID, optional GEMINI_API_KEY
+# Fill in DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_DEV_GUILD_ID
 bun apps/discord-bot/src/index.ts
 ```
 
@@ -102,7 +102,6 @@ chart renderers (SVG) + Resvg rasterizer
 - **Open-Meteo** as the only weather provider — free, no key, well-documented, generous rate limits, returns local-time hourly data via `timezone=auto`.
 - **SVG-first rendering** with D3 + Resvg — fast deterministic rasterization, no headless browser, no canvas native deps. Heatmap is ~17,000 SVG rects; rasterizes in ~500 ms.
 - **Filesystem caches over a database** — climatology data is large and write-once; SQLite is for queryable state (cities, aliases). Mixing the two would make the schema noisy without performance benefit.
-- **Gemini Flash** for `/explain` — generous free tier, same SDK swaps to Vertex AI on GCP, `thinkingBudget: 0` keeps output snappy and prevents mid-sentence truncation.
 
 ---
 

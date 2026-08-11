@@ -13,9 +13,7 @@
     "@atmosfera/climate": "workspace:*",
     "@atmosfera/config": "workspace:*",
     "@atmosfera/db": "workspace:*",
-    "@atmosfera/explain": "workspace:*",
     "@atmosfera/geocode": "workspace:*",
-    "@atmosfera/gemini": "workspace:*",
     "@atmosfera/lang-classify": "workspace:*",
     "@sapphire/framework": "^5.5.0",
     "discord.js": "^14.26.4"

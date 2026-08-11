@@ -12,7 +12,6 @@
   "dependencies": {
     "@atmosfera/config": "workspace:*",
     "@atmosfera/db": "workspace:*",
-    "@atmosfera/explain": "workspace:*",
     "hono": "^4.6.14"
   }
 }

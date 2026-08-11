@@ -51,7 +51,6 @@ Required:
 Optional but recommended:
 
 - `DISCORD_DEV_GUILD_ID` — only register commands to one guild (instant; without this they go global, ~1 hour to propagate)
-- `GEMINI_API_KEY` — from https://aistudio.google.com/apikey (free, generous tier). Required for `/explain`.
 - `NOMINATIM_USER_AGENT` — only if you ever extend geocoding fallback
 
 ## 4. Start it

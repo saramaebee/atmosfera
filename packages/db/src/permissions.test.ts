@@ -16,7 +16,7 @@ function freshDb() {
 }
 
 const GUILD = 'guild-1';
-const CMD = 'explain-setup';
+const CMD = 'muggy';
 const ADMIN_ACTOR = 'admin-user';
 const TARGET_USER = 'user-42';
 const MOD_ROLE = 'role-mods';
@@ -268,7 +268,7 @@ describe('list helpers', () => {
     const db = freshDb();
     upsertRule(db, {
       guildId: GUILD,
-      commandName: 'explain-setup',
+      commandName: 'muggy',
       principal: { type: 'role', id: MOD_ROLE },
       effect: 'allow',
       actorId: ADMIN_ACTOR,

@@ -103,7 +103,7 @@ export interface GuildSidebarProps {
   guildName: string;
   iconHash: string | null;
   role: Role;
-  active: 'overview' | 'audit' | 'perms' | 'explain-roles' | 'explain-channels' | 'debug';
+  active: 'overview' | 'audit' | 'perms' | 'debug';
 }
 
 export function GuildSidebar(props: GuildSidebarProps) {
@@ -139,14 +139,6 @@ export function GuildSidebar(props: GuildSidebarProps) {
           <a class={cls('perms')} href={`/g/${props.guildId}/perms`}>
             <Icon.Shield />
             <span>Permissions</span>
-          </a>
-          <a class={cls('explain-roles')} href={`/g/${props.guildId}/explain-roles`}>
-            <Icon.Shield />
-            <span>Explain roles</span>
-          </a>
-          <a class={cls('explain-channels')} href={`/g/${props.guildId}/explain-channels`}>
-            <Icon.Layers />
-            <span>Explain channels</span>
           </a>
         </>
       ) : null}
