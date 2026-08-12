@@ -1,4 +1,5 @@
 import { fetchRadarCatalog } from '@atmosfera/climate';
+import { listBotOwnerIds } from '@atmosfera/config';
 import { BucketScope, Command } from '@sapphire/framework';
 import { MessageFlags } from 'discord.js';
 import { type RadarMode, buildRenderedMessage } from '../lib/charts';
@@ -25,6 +26,10 @@ export class RadarCommand extends Command {
       cooldownDelay: 30_000,
       cooldownLimit: 1,
       cooldownScope: BucketScope.User,
+      // Bot owners bypass the cooldown (mirrors ownerOverride in the RBAC
+      // layer). Env is read once at construction — owner changes need a
+      // restart anyway (see listBotOwnerIds).
+      cooldownFilteredUsers: [...listBotOwnerIds()],
     });
   }
 
