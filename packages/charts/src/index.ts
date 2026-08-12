@@ -10,6 +10,7 @@ export { svgToPng, svgToRgba } from './raster';
 export {
   encodeRadarGif,
   formatFrameTime,
+  formatGeneratedStamp,
   pngTileDataUri,
   renderRadarFrameSvg,
   RADAR_GIF_SIZE,

@@ -22,6 +22,28 @@ export function formatFrameTime(unixSec: number, timeZone: string): string {
   }).format(new Date(unixSec * 1000));
 }
 
+/**
+ * "Aug 12, 2:30 PM" in the city's IANA timezone — the generation stamp for
+ * the bottom bar. City-local on purpose, so it reads on the same clock as the
+ * frame timestamps.
+ */
+export function formatGeneratedStamp(unixMs: number, timeZone: string): string {
+  const d = new Date(unixMs);
+  // Two formatters joined explicitly: a combined one lets ICU pick the
+  // date–time separator (" at " on newer versions), which varies by runtime.
+  const date = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
+  const time = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
+  return `${date}, ${time}`;
+}
+
 export interface RadarFrameSvgInput {
   width: number;
   height: number;
@@ -38,6 +60,8 @@ export interface RadarFrameSvgInput {
   radarTiles: (Buffer | null)[];
   timeLabel: string;
   cityName: string;
+  /** Generation stamp for the bottom bar (see {@link formatGeneratedStamp}). */
+  generatedLabel: string;
 }
 
 const TILE = 256;
@@ -60,7 +84,7 @@ function tileImages(hrefs: (string | null)[], cols: number, extra = ''): string 
 
 /** One radar animation frame: basemap + radar tiles cropped to the window, city marker, timestamp, attribution. */
 export function renderRadarFrameSvg(input: RadarFrameSvgInput): string {
-  const { width, height, cols, offsetX, offsetY, timeLabel, cityName } = input;
+  const { width, height, cols, offsetX, offsetY, timeLabel, cityName, generatedLabel } = input;
   const cx = width / 2;
   const cy = height / 2;
   const pillWidth = 30 + timeLabel.length * 9;
@@ -82,6 +106,7 @@ export function renderRadarFrameSvg(input: RadarFrameSvgInput): string {
   <text x="${width - 12}" y="33" font-size="13" fill="${TEXT}" text-anchor="end" font-family="sans-serif">${escapeXml(cityName)}</text>
   <rect x="0" y="${height - 20}" width="${width}" height="20" fill="white" fill-opacity="0.8"/>
   <text x="8" y="${height - 6}" font-size="10" fill="${MUTED}" font-family="sans-serif">radar © RainViewer · map © OpenStreetMap contributors © CARTO</text>
+  <text x="${width - 8}" y="${height - 6}" font-size="10" fill="${MUTED}" text-anchor="end" font-family="sans-serif"><tspan font-weight="700">atmósfera</tspan> · ${escapeXml(generatedLabel)}</text>
 </svg>`;
 }
 

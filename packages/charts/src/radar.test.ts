@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import { encodeRadarGif, formatFrameTime, pngTileDataUri, renderRadarFrameSvg } from './radar';
+import {
+  encodeRadarGif,
+  formatFrameTime,
+  formatGeneratedStamp,
+  pngTileDataUri,
+  renderRadarFrameSvg,
+} from './radar';
 import { svgToRgba } from './raster';
 
 // Smallest valid PNG (1x1 transparent), enough for data-URI embedding tests.
@@ -20,6 +26,7 @@ function frameInput(overrides: Partial<Parameters<typeof renderRadarFrameSvg>[0]
     radarTiles: Array.from({ length: 9 }, () => TINY_PNG),
     timeLabel: '2:30 PM',
     cityName: 'Miami, Florida, United States',
+    generatedLabel: 'Aug 12, 2:35 PM',
     ...overrides,
   };
 }
@@ -40,6 +47,21 @@ describe('formatFrameTime', () => {
   });
 });
 
+describe('formatGeneratedStamp', () => {
+  // 2026-08-12T14:30:00Z
+  const t = 1786545000_000;
+
+  it('formats date + time in the given timezone', () => {
+    expect(formatGeneratedStamp(t, 'America/New_York')).toBe('Aug 12, 10:30 AM');
+    expect(formatGeneratedStamp(t, 'UTC')).toBe('Aug 12, 2:30 PM');
+  });
+
+  it('rolls the date across the antimeridian-adjacent timezones', () => {
+    // 14:30 UTC is already Aug 13 in Auckland (UTC+12).
+    expect(formatGeneratedStamp(t, 'Pacific/Auckland')).toBe('Aug 13, 2:30 AM');
+  });
+});
+
 describe('pngTileDataUri', () => {
   it('encodes a buffer as a PNG data URI', () => {
     expect(pngTileDataUri(TINY_PNG)).toBe(`data:image/png;base64,${TINY_PNG.toString('base64')}`);
@@ -56,6 +78,7 @@ describe('renderRadarFrameSvg', () => {
     expect(svg).toContain('2:30 PM');
     expect(svg).toContain('Miami, Florida, United States');
     expect(svg).toContain('radar © RainViewer · map © OpenStreetMap contributors © CARTO');
+    expect(svg).toContain('<tspan font-weight="700">atmósfera</tspan> · Aug 12, 2:35 PM');
     // City marker at the window center.
     expect(svg).toContain('<circle cx="256" cy="256" r="4" fill="#2563eb"/>');
   });

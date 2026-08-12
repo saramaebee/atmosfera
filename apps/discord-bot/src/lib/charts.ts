@@ -3,6 +3,7 @@ import {
   compareCubesCanonical,
   encodeRadarGif,
   formatFrameTime,
+  formatGeneratedStamp,
   nowCardInputFromForecast,
   pngTileDataUri,
   renderChartCached,
@@ -218,6 +219,7 @@ export async function buildRadarGif(
 
   const rgbaFrames: Uint8Array[] = [];
   const labels: string[] = [];
+  const generatedLabel = formatGeneratedStamp(Date.now(), city.timezone);
   for (let i = 0; i < frames.length; i++) {
     const radarTiles = fetched.slice(i * vp.tiles.length, (i + 1) * vp.tiles.length);
     // Honest frames only: a missing radar tile would render as falsely dry
@@ -236,6 +238,7 @@ export async function buildRadarGif(
       radarTiles,
       timeLabel: label,
       cityName: cityDisplayName(city),
+      generatedLabel,
     });
     rgbaFrames.push(svgToRgba(svg).pixels);
     labels.push(label);
