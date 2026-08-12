@@ -104,6 +104,7 @@ export class DisambigHandler extends InteractionHandler {
       command: session.command,
       cities,
       chart: session.chart,
+      radarMode: session.radarMode,
     });
 
     await interaction.followUp({ content: rendered.content, files: rendered.files });

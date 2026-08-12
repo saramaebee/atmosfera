@@ -10,7 +10,7 @@ import {
   MessageFlags,
   StringSelectMenuBuilder,
 } from 'discord.js';
-import type { CommandKind, CompareChartChoice } from './charts';
+import type { CommandKind, CompareChartChoice, RadarMode } from './charts';
 import {
   type DisambigSession,
   type QuerySlot,
@@ -41,6 +41,7 @@ export async function resolveCitiesOrPrompt(
   command: CommandKind,
   queries: string[],
   chart?: CompareChartChoice,
+  radarMode?: RadarMode,
 ): Promise<City[] | null> {
   const results = await Promise.all(
     queries.map((q) =>
@@ -81,6 +82,7 @@ export async function resolveCitiesOrPrompt(
     command,
     slots,
     chart,
+    radarMode,
     userId: interaction.user.id,
     guildId: interaction.guildId ?? undefined,
     createdAt: Date.now(),

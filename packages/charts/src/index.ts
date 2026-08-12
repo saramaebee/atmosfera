@@ -6,7 +6,16 @@ export {
   renderWetDayComparisonSvg,
 } from './muggy';
 export { renderTemperatureComparisonSvg, HEATMAP_WIDTH } from './temperature';
-export { svgToPng } from './raster';
+export { svgToPng, svgToRgba } from './raster';
+export {
+  encodeRadarGif,
+  formatFrameTime,
+  pngTileDataUri,
+  renderRadarFrameSvg,
+  RADAR_GIF_SIZE,
+  type RadarFrameSvgInput,
+  type RadarGifOptions,
+} from './radar';
 export {
   type NowCardHourEntry,
   type NowCardInput,

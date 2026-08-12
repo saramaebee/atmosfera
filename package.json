@@ -11,6 +11,7 @@
     "dev": "bun --watch apps/discord-bot/src/index.ts",
     "dev:web": "bun --filter @atmosfera/web dev",
     "render": "bun scripts/render.ts",
+    "radar": "bun scripts/radar-smoke.ts",
     "smoke:resvg": "bun scripts/smoke/resvg.ts"
   },
   "dependencies": {

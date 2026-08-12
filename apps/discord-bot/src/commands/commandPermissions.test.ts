@@ -56,6 +56,7 @@ describe('command permission/scope hygiene', () => {
       'privacy',
       'permissions',
       'sync',
+      'radar',
     ];
     for (const name of expected) {
       expect(registered.has(name)).toBe(true);
