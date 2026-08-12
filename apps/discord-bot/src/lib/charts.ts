@@ -1,5 +1,8 @@
 import {
+  type ChartTheme,
   type CitySeries,
+  DARK_THEME,
+  type ThemeName,
   compareCubesCanonical,
   encodeRadarGif,
   formatFrameTime,
@@ -12,6 +15,7 @@ import {
   renderRadarFrameSvg,
   renderTemperatureComparisonSvg,
   renderWetDayComparisonSvg,
+  resolveTheme,
   svgToPng,
   svgToRgba,
 } from '@atmosfera/charts';
@@ -55,6 +59,8 @@ export interface RenderRequest {
   radarMode?: RadarMode;
   /** Attach a per-city wet-bulb heat-stress embed beneath the chart. */
   wetBulb?: boolean;
+  /** Chart color theme; omitted means dark. */
+  theme?: ThemeName;
 }
 
 export interface RenderedMessage {
@@ -132,7 +138,7 @@ function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): s
   return `${head}\n-# ${OPEN_METEO_ATTRIBUTION}`;
 }
 
-async function buildNowMessage(city: City): Promise<RenderedMessage> {
+async function buildNowMessage(city: City, theme: ChartTheme): Promise<RenderedMessage> {
   const forecast = await fetchForecastNow(city.latitude, city.longitude);
   const upcoming = selectUpcomingHours(forecast);
   const input = nowCardInputFromForecast(cityDisplayName(city), forecast, upcoming);
@@ -140,7 +146,7 @@ async function buildNowMessage(city: City): Promise<RenderedMessage> {
   // Not renderChartCached: that cache is keyed on lat/lon + cube version and
   // persists forever, which is wrong for a forecast. The render itself is
   // milliseconds and the 10-minute forecast data cache absorbs repeat calls.
-  const png = svgToPng(renderNowCardSvg(input));
+  const png = svgToPng(renderNowCardSvg(input, theme));
 
   return {
     content: `**${cityDisplayName(city)}** — current conditions & next 24 h.\n-# ${OPEN_METEO_ATTRIBUTION}`,
@@ -178,6 +184,7 @@ export interface RadarGifResult {
 export async function buildRadarGif(
   city: City,
   mode: RadarMode = 'past',
+  theme: ChartTheme = DARK_THEME,
 ): Promise<RadarGifResult | null> {
   const catalog = await fetchRadarCatalog();
   const frames =
@@ -199,13 +206,28 @@ export async function buildRadarGif(
 
   // Basemap failure throws (a hole in the map looks broken); a failed radar
   // tile degrades to null at fetch time and drops its whole frame below —
-  // rendered, it would be indistinguishable from "no rain there".
-  const basemapTiles = await Promise.all(
-    vp.tiles.map((t) => (t.y === null ? null : fetchBasemapTile(vp.zoom, t.x, t.y, deadline))),
-  );
+  // rendered, it would be indistinguishable from "no rain there". The dark
+  // theme fetches a second, transparent labels layer composited above the
+  // rain (see RadarTheme.labelsStyle) — same failure semantics.
+  const { basemapStyle, labelsStyle } = theme.radar;
+  const [basemapTiles, labelTiles] = await Promise.all([
+    Promise.all(
+      vp.tiles.map((t) =>
+        t.y === null ? null : fetchBasemapTile(vp.zoom, t.x, t.y, basemapStyle, deadline),
+      ),
+    ),
+    labelsStyle
+      ? Promise.all(
+          vp.tiles.map((t) =>
+            t.y === null ? null : fetchBasemapTile(vp.zoom, t.x, t.y, labelsStyle, deadline),
+          ),
+        )
+      : null,
+  ]);
   // The basemap is identical across animation frames — encode the data URIs
   // once here rather than per frame.
   const basemapImages = basemapTiles.map((t) => (t === null ? null : pngTileDataUri(t)));
+  const labelImages = labelTiles?.map((t) => (t === null ? null : pngTileDataUri(t)));
 
   const jobs = frames.flatMap((frame) => vp.tiles.map((tile) => ({ frame, tile })));
   const fetched = await mapWithConcurrency(jobs, 8, async ({ frame, tile }) => {
@@ -235,10 +257,12 @@ export async function buildRadarGif(
       offsetX: vp.offsetX,
       offsetY: vp.offsetY,
       basemapImages,
+      labelImages,
       radarTiles,
       timeLabel: label,
       cityName: cityDisplayName(city),
       generatedLabel,
+      theme,
     });
     rgbaFrames.push(svgToRgba(svg).pixels);
     labels.push(label);
@@ -257,23 +281,31 @@ export async function buildRadarGif(
 // CPU pipeline instead of running it once each.
 const inFlightRadarBuilds = new Map<string, Promise<RadarGifResult | null>>();
 
-function buildRadarGifCoalesced(city: City, mode: RadarMode): Promise<RadarGifResult | null> {
-  const key = `${city.latitude},${city.longitude}:${mode}`;
+function buildRadarGifCoalesced(
+  city: City,
+  mode: RadarMode,
+  theme: ChartTheme,
+): Promise<RadarGifResult | null> {
+  const key = `${city.latitude},${city.longitude}:${mode}:${theme.name}`;
   const existing = inFlightRadarBuilds.get(key);
   if (existing) return existing;
-  const build = buildRadarGif(city, mode).finally(() => inFlightRadarBuilds.delete(key));
+  const build = buildRadarGif(city, mode, theme).finally(() => inFlightRadarBuilds.delete(key));
   inFlightRadarBuilds.set(key, build);
   return build;
 }
 
-async function buildRadarMessage(city: City, mode: RadarMode): Promise<RenderedMessage> {
+async function buildRadarMessage(
+  city: City,
+  mode: RadarMode,
+  theme: ChartTheme,
+): Promise<RenderedMessage> {
   // Errors become a friendly command-specific message rather than propagating
   // to the generic chatInputCommandError listener: radar makes ~120 tile
   // fetches, so transient network failures are a matter of when, not if, and
   // deserve better copy than the catch-all.
   let result: RadarGifResult | null;
   try {
-    result = await buildRadarGifCoalesced(city, mode);
+    result = await buildRadarGifCoalesced(city, mode, theme);
   } catch (err) {
     container.logger.error(`radar: GIF build failed for ${cityDisplayName(city)}`, err);
     result = null;
@@ -306,14 +338,15 @@ async function buildRadarMessage(city: City, mode: RadarMode): Promise<RenderedM
  * followUp.
  */
 export async function buildRenderedMessage(req: RenderRequest): Promise<RenderedMessage> {
+  const theme = resolveTheme(req.theme);
   // '/now' is forecast-shaped, not climatology-shaped: no cubes, no wet-bulb.
   // Branching here (rather than in each caller) keeps the disambiguation
   // resume path working for it unchanged.
-  if (req.command === 'now') return buildNowMessage(req.cities[0]!);
+  if (req.command === 'now') return buildNowMessage(req.cities[0]!, theme);
   // '/radar' is live-imagery-shaped: no cubes either, and renderChartCached's
   // permanent cache would be wrong — the catalog/tile caches absorb repeats.
   if (req.command === 'radar') {
-    return buildRadarMessage(req.cities[0]!, req.radarMode ?? 'past');
+    return buildRadarMessage(req.cities[0]!, req.radarMode ?? 'past', theme);
   }
 
   const loaded = await Promise.all(
@@ -343,26 +376,26 @@ export async function buildRenderedMessage(req: RenderRequest): Promise<Rendered
     render: () => string,
     filenamePrefix: string,
   ) => {
-    const png = renderChartCached(kind, cubes, render);
+    const png = renderChartCached(kind, cubes, render, theme.name);
     files.push(new AttachmentBuilder(png, { name: `${filenamePrefix}-${slug}.png` }));
   };
 
   if (req.command === 'muggy') {
-    attach('muggy', () => renderMuggyComparisonSvg(series), 'muggy');
+    attach('muggy', () => renderMuggyComparisonSvg(series, theme), 'muggy');
   } else if (req.command === 'climate') {
-    attach('heatmap', () => renderTemperatureComparisonSvg(series), 'climate');
+    attach('heatmap', () => renderTemperatureComparisonSvg(series, theme), 'climate');
   } else if (req.command === 'wet') {
-    attach('wetday', () => renderWetDayComparisonSvg(series), 'wetday');
+    attach('wetday', () => renderWetDayComparisonSvg(series, theme), 'wetday');
   } else {
     const chart = req.chart ?? 'heatmap';
     if (chart === 'heatmap' || chart === 'all') {
-      attach('heatmap', () => renderTemperatureComparisonSvg(series), 'heatmap');
+      attach('heatmap', () => renderTemperatureComparisonSvg(series, theme), 'heatmap');
     }
     if (chart === 'muggy' || chart === 'all') {
-      attach('muggy', () => renderMuggyComparisonSvg(series), 'muggy');
+      attach('muggy', () => renderMuggyComparisonSvg(series, theme), 'muggy');
     }
     if (chart === 'wetday' || chart === 'all') {
-      attach('wetday', () => renderWetDayComparisonSvg(series), 'wetday');
+      attach('wetday', () => renderWetDayComparisonSvg(series, theme), 'wetday');
     }
   }
 

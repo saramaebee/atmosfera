@@ -7,6 +7,7 @@ import {
   renderRadarFrameSvg,
 } from './radar';
 import { svgToRgba } from './raster';
+import { DARK_THEME, LIGHT_THEME } from './theme';
 
 // Smallest valid PNG (1x1 transparent), enough for data-URI embedding tests.
 const TINY_PNG = Buffer.from(
@@ -105,6 +106,33 @@ describe('renderRadarFrameSvg', () => {
     expect(width).toBe(512);
     expect(height).toBe(512);
     expect(pixels.length).toBe(512 * 512 * 4);
+  });
+
+  it('themes the backdrop and chrome, keeping attribution in both themes', () => {
+    const dark = renderRadarFrameSvg(frameInput());
+    expect(dark).toContain(`fill="${DARK_THEME.radar.backdrop}"`);
+    expect(dark).toContain(`fill="${DARK_THEME.radar.muted}"`);
+
+    const light = renderRadarFrameSvg(frameInput({ theme: LIGHT_THEME }));
+    expect(light).toContain(`fill="${LIGHT_THEME.radar.backdrop}"`);
+    expect(light).toContain('radar © RainViewer · map © OpenStreetMap contributors © CARTO');
+    expect(light).not.toBe(dark);
+  });
+
+  it('draws the boosted labels layer above the rain when provided', () => {
+    const svg = renderRadarFrameSvg(
+      frameInput({ labelImages: Array.from({ length: 9 }, () => pngTileDataUri(TINY_PNG)) }),
+    );
+    expect(svg).toContain(`slope="${DARK_THEME.radar.labelsBoost}"`);
+    // 9 basemap + 9 radar + 9 label tiles.
+    expect(svg.match(/data:image\/png;base64,/g)).toHaveLength(27);
+    // Labels render after (above) the rain overlay.
+    expect(svg.indexOf('filter="url(#labelboost)"')).toBeGreaterThan(svg.indexOf('opacity="0.75"'));
+  });
+
+  it('omits the labels layer and filter when not provided', () => {
+    const svg = renderRadarFrameSvg(frameInput());
+    expect(svg).not.toContain('labelboost');
   });
 });
 

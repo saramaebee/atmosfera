@@ -1,3 +1,4 @@
+import type { ThemeName } from '@atmosfera/charts';
 import type { City } from '@atmosfera/db';
 import type { GeocodeCandidate } from '@atmosfera/geocode';
 import type { CommandKind, CompareChartChoice, RadarMode } from './charts';
@@ -21,6 +22,10 @@ export interface DisambigSession {
   chart?: CompareChartChoice;
   /** Only meaningful for command='radar'. */
   radarMode?: RadarMode;
+  /** Chart color theme; omitted means dark. */
+  theme?: ThemeName;
+  /** Attach the wet-bulb embed when rendering resumes after disambiguation. */
+  wetBulb?: boolean;
   userId: string;
   guildId?: string;
   createdAt: number;

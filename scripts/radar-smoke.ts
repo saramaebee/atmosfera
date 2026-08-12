@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { type ThemeName, resolveTheme } from '@atmosfera/charts';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { formatCandidate, resolveCity } from '@atmosfera/geocode';
@@ -7,17 +8,25 @@ import { buildRadarGif } from '../apps/discord-bot/src/lib/charts';
 
 interface Args {
   city: string;
+  theme: ThemeName;
   out: string | undefined;
 }
 
 function parseArgs(argv: string[]): Args {
   let city: string | undefined;
+  let theme: ThemeName = 'dark';
   let out: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === '--out') {
       out = argv[++i];
+    } else if (a === '--theme') {
+      const v = argv[++i];
+      if (v !== 'light' && v !== 'dark') {
+        throw new Error(`Unsupported theme: "${v}". Supported: light, dark.`);
+      }
+      theme = v;
     } else if (a.startsWith('--')) {
       throw new Error(`Unknown flag: ${a}`);
     } else if (city === undefined) {
@@ -27,8 +36,8 @@ function parseArgs(argv: string[]): Args {
     }
   }
 
-  if (!city) throw new Error('usage: bun run radar <city> [--out path.gif]');
-  return { city, out };
+  if (!city) throw new Error('usage: bun run radar <city> [--theme light|dark] [--out path.gif]');
+  return { city, theme, out };
 }
 
 function slugify(s: string): string {
@@ -75,7 +84,7 @@ async function main(): Promise<void> {
     `  → ${city.canonicalName} (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}, tz=${city.timezone})  [${result.via}]\n`,
   );
 
-  const radar = await buildRadarGif(city);
+  const radar = await buildRadarGif(city, 'past', resolveTheme(args.theme));
   if (!radar) {
     throw new Error('RainViewer returned no usable frames (upstream outage?). Try again later.');
   }

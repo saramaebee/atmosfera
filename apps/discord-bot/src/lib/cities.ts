@@ -1,3 +1,4 @@
+import type { ThemeName } from '@atmosfera/charts';
 import type { City } from '@atmosfera/db';
 import { type ResolveResult, formatCandidate, resolveCity } from '@atmosfera/geocode';
 import { container } from '@sapphire/framework';
@@ -36,12 +37,22 @@ export function cityDisplayName(city: City): string {
  * resolveCity is fast (<1s typical) so the slash command interaction can be
  * replied to directly without a defer.
  */
+export interface ResolveCitiesOptions {
+  /** Only meaningful for command='compare'. */
+  chart?: CompareChartChoice;
+  /** Only meaningful for command='radar'. */
+  radarMode?: RadarMode;
+  /** Chart color theme; omitted means dark. */
+  theme?: ThemeName;
+  /** Attach the wet-bulb embed when rendering resumes after disambiguation. */
+  wetBulb?: boolean;
+}
+
 export async function resolveCitiesOrPrompt(
   interaction: ChatInputCommandInteraction,
   command: CommandKind,
   queries: string[],
-  chart?: CompareChartChoice,
-  radarMode?: RadarMode,
+  opts: ResolveCitiesOptions = {},
 ): Promise<City[] | null> {
   const results = await Promise.all(
     queries.map((q) =>
@@ -81,8 +92,10 @@ export async function resolveCitiesOrPrompt(
   const session: DisambigSession = {
     command,
     slots,
-    chart,
-    radarMode,
+    chart: opts.chart,
+    radarMode: opts.radarMode,
+    theme: opts.theme,
+    wetBulb: opts.wetBulb,
     userId: interaction.user.id,
     guildId: interaction.guildId ?? undefined,
     createdAt: Date.now(),

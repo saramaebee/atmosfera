@@ -2,6 +2,7 @@ import { Command } from '@sapphire/framework';
 import { type CompareChartChoice, buildRenderedMessage } from '../lib/charts';
 import { resolveCitiesOrPrompt } from '../lib/cities';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { addThemeOption, getThemeOption } from '../lib/theme-option';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
@@ -21,38 +22,40 @@ export class CompareCommand extends Command {
     registry.registerChatInputCommand(
       (builder) =>
         applyScopeToBuilder(
-          builder
-            .setName('compare')
-            .setDescription('Compare two cities — temperature heatmap and/or muggy probability')
-            .addStringOption((opt) =>
-              opt
-                .setName('city_a')
-                .setDescription('First city, e.g. "Buenos Aires"')
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt.setName('city_b').setDescription('Second city, e.g. "Tokyo"').setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName('chart')
-                .setDescription('Which chart to show (default: heatmap)')
-                .setRequired(false)
-                .addChoices(
-                  { name: 'Temperature heatmap', value: 'heatmap' },
-                  { name: 'Muggy probability', value: 'muggy' },
-                  { name: 'Wet-day probability', value: 'wetday' },
-                  { name: 'All three', value: 'all' },
-                ),
-            )
-            .addBooleanOption((opt) =>
-              opt
-                .setName('wetbulb')
-                .setDescription(
-                  'Add wet-bulb heat-stress summary per city (pairs best with chart:muggy)',
-                )
-                .setRequired(false),
-            ),
+          addThemeOption(
+            builder
+              .setName('compare')
+              .setDescription('Compare two cities — temperature heatmap and/or muggy probability')
+              .addStringOption((opt) =>
+                opt
+                  .setName('city_a')
+                  .setDescription('First city, e.g. "Buenos Aires"')
+                  .setRequired(true),
+              )
+              .addStringOption((opt) =>
+                opt.setName('city_b').setDescription('Second city, e.g. "Tokyo"').setRequired(true),
+              )
+              .addStringOption((opt) =>
+                opt
+                  .setName('chart')
+                  .setDescription('Which chart to show (default: heatmap)')
+                  .setRequired(false)
+                  .addChoices(
+                    { name: 'Temperature heatmap', value: 'heatmap' },
+                    { name: 'Muggy probability', value: 'muggy' },
+                    { name: 'Wet-day probability', value: 'wetday' },
+                    { name: 'All three', value: 'all' },
+                  ),
+              )
+              .addBooleanOption((opt) =>
+                opt
+                  .setName('wetbulb')
+                  .setDescription(
+                    'Add wet-bulb heat-stress summary per city (pairs best with chart:muggy)',
+                  )
+                  .setRequired(false),
+              ),
+          ),
           SCOPE,
         ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
@@ -64,8 +67,13 @@ export class CompareCommand extends Command {
     const queryB = interaction.options.getString('city_b', true);
     const chart = (interaction.options.getString('chart') ?? 'heatmap') as CompareChartChoice;
     const wetBulb = interaction.options.getBoolean('wetbulb') ?? false;
+    const theme = getThemeOption(interaction);
 
-    const cities = await resolveCitiesOrPrompt(interaction, 'compare', [queryA, queryB], chart);
+    const cities = await resolveCitiesOrPrompt(interaction, 'compare', [queryA, queryB], {
+      chart,
+      theme,
+      wetBulb,
+    });
     if (!cities) return;
 
     await interaction.deferReply();
@@ -75,6 +83,7 @@ export class CompareCommand extends Command {
       cities,
       chart,
       wetBulb,
+      theme,
     });
 
     await interaction.editReply(rendered);

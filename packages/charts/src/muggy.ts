@@ -1,5 +1,6 @@
 import type { ClimateCube } from '@atmosfera/climate';
 import * as d3 from 'd3';
+import { type ChartTheme, DARK_THEME } from './theme';
 
 export interface CitySeries {
   name: string;
@@ -59,6 +60,7 @@ function renderProbabilityComparisonSvg(
     title: string;
     accessor: (cube: ClimateCube) => number[];
   },
+  theme: ChartTheme,
 ): string {
   if (cities.length === 0) throw new Error('renderProbabilityComparisonSvg: no cities');
   if (cities.length > CITY_COLORS.length) {
@@ -113,7 +115,7 @@ function renderProbabilityComparisonSvg(
         Math.min(innerWidth - approxLabelHalfWidth, cx),
       );
 
-      return `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}" stroke="#ffffff" stroke-width="2" />
+      return `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}" stroke="${theme.peakHalo}" stroke-width="2" />
       <text x="${labelX}" y="${labelY}" font-size="13" font-weight="600" fill="${color}" text-anchor="middle" font-family="sans-serif">${escapeXml(label)}</text>`;
     })
     .filter(Boolean)
@@ -121,15 +123,15 @@ function renderProbabilityComparisonSvg(
 
   const monthTicks = MONTH_STARTS.map((doy, i) => {
     const x = xScale(doy);
-    return `<line x1="${x}" x2="${x}" y1="0" y2="${innerHeight}" stroke="#eef2f7" stroke-width="1" />
-      <text x="${x}" y="${innerHeight + 22}" font-size="13" fill="#6b7280" text-anchor="middle" font-family="sans-serif">${MONTHS[i]}</text>`;
+    return `<line x1="${x}" x2="${x}" y1="0" y2="${innerHeight}" stroke="${theme.gridline}" stroke-width="1" />
+      <text x="${x}" y="${innerHeight + 22}" font-size="13" fill="${theme.muted}" text-anchor="middle" font-family="sans-serif">${MONTHS[i]}</text>`;
   }).join('\n      ');
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1]
     .map((p) => {
       const y = yScale(p);
-      return `<line x1="0" x2="${innerWidth}" y1="${y}" y2="${y}" stroke="#f3f4f6" stroke-width="1" />
-      <text x="-14" y="${y + 4}" font-size="12" fill="#6b7280" text-anchor="end" font-family="sans-serif">${Math.round(p * 100)}%</text>`;
+      return `<line x1="0" x2="${innerWidth}" y1="${y}" y2="${y}" stroke="${theme.gridlineFaint}" stroke-width="1" />
+      <text x="-14" y="${y + 4}" font-size="12" fill="${theme.muted}" text-anchor="end" font-family="sans-serif">${Math.round(p * 100)}%</text>`;
     })
     .join('\n      ');
 
@@ -137,16 +139,16 @@ function renderProbabilityComparisonSvg(
     .map((c, i) => {
       const x = MARGIN.left + i * 220;
       return `<rect x="${x}" y="55" width="14" height="14" rx="2" fill="${CITY_COLORS[i]}" />
-    <text x="${x + 22}" y="67" font-size="15" font-weight="600" fill="#111827" font-family="sans-serif">${escapeXml(c.name)}</text>`;
+    <text x="${x + 22}" y="67" font-size="15" font-weight="600" fill="${theme.text}" font-family="sans-serif">${escapeXml(c.name)}</text>`;
     })
     .join('\n    ');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${MUGGY_CHART_WIDTH}" height="${MUGGY_CHART_HEIGHT}" viewBox="0 0 ${MUGGY_CHART_WIDTH} ${MUGGY_CHART_HEIGHT}">
-  <rect width="${MUGGY_CHART_WIDTH}" height="${MUGGY_CHART_HEIGHT}" fill="#ffffff" />
-  <text x="${MARGIN.left}" y="34" font-size="22" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(spec.title)}</text>
+  <rect width="${MUGGY_CHART_WIDTH}" height="${MUGGY_CHART_HEIGHT}" fill="${theme.bg}" />
+  <text x="${MARGIN.left}" y="34" font-size="22" font-weight="700" fill="${theme.text}" font-family="sans-serif">${escapeXml(spec.title)}</text>
   ${legend}
   <g transform="translate(${MARGIN.left},${MARGIN.top})">
-    <rect x="0" y="0" width="${innerWidth}" height="${innerHeight}" fill="none" stroke="#cbd5e1" stroke-width="1" />
+    <rect x="0" y="0" width="${innerWidth}" height="${innerHeight}" fill="none" stroke="${theme.border}" stroke-width="1" />
       ${yTicks}
       ${monthTicks}
       ${cityShapes}
@@ -155,16 +157,30 @@ function renderProbabilityComparisonSvg(
 </svg>`;
 }
 
-export function renderMuggyComparisonSvg(cities: CitySeries[]): string {
-  return renderProbabilityComparisonSvg(cities, {
-    title: 'Muggy probability — dew point ≥ 18°C',
-    accessor: (cube) => cube.muggyProbability,
-  });
+export function renderMuggyComparisonSvg(
+  cities: CitySeries[],
+  theme: ChartTheme = DARK_THEME,
+): string {
+  return renderProbabilityComparisonSvg(
+    cities,
+    {
+      title: 'Muggy probability — dew point ≥ 18°C',
+      accessor: (cube) => cube.muggyProbability,
+    },
+    theme,
+  );
 }
 
-export function renderWetDayComparisonSvg(cities: CitySeries[]): string {
-  return renderProbabilityComparisonSvg(cities, {
-    title: 'Wet-day probability — ≥ 1 mm of rain in a day',
-    accessor: (cube) => cube.wetDayProbability,
-  });
+export function renderWetDayComparisonSvg(
+  cities: CitySeries[],
+  theme: ChartTheme = DARK_THEME,
+): string {
+  return renderProbabilityComparisonSvg(
+    cities,
+    {
+      title: 'Wet-day probability — ≥ 1 mm of rain in a day',
+      accessor: (cube) => cube.wetDayProbability,
+    },
+    theme,
+  );
 }

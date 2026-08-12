@@ -2,6 +2,7 @@ import { Command } from '@sapphire/framework';
 import { buildRenderedMessage } from '../lib/charts';
 import { resolveCitiesOrPrompt } from '../lib/cities';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { addThemeOption, getThemeOption } from '../lib/theme-option';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
@@ -21,15 +22,17 @@ export class NowCommand extends Command {
     registry.registerChatInputCommand(
       (builder) =>
         applyScopeToBuilder(
-          builder
-            .setName('now')
-            .setDescription('Current weather and next 24 hours for a city')
-            .addStringOption((opt) =>
-              opt
-                .setName('city')
-                .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
-                .setRequired(true),
-            ),
+          addThemeOption(
+            builder
+              .setName('now')
+              .setDescription('Current weather and next 24 hours for a city')
+              .addStringOption((opt) =>
+                opt
+                  .setName('city')
+                  .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
+                  .setRequired(true),
+              ),
+          ),
           SCOPE,
         ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
@@ -38,13 +41,14 @@ export class NowCommand extends Command {
 
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const query = interaction.options.getString('city', true);
+    const theme = getThemeOption(interaction);
 
-    const cities = await resolveCitiesOrPrompt(interaction, 'now', [query]);
+    const cities = await resolveCitiesOrPrompt(interaction, 'now', [query], { theme });
     if (!cities) return;
 
     await interaction.deferReply();
 
-    const rendered = await buildRenderedMessage({ command: 'now', cities });
+    const rendered = await buildRenderedMessage({ command: 'now', cities, theme });
     await interaction.editReply(rendered);
   }
 }

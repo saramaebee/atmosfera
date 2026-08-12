@@ -105,8 +105,14 @@ export class DisambigHandler extends InteractionHandler {
       cities,
       chart: session.chart,
       radarMode: session.radarMode,
+      theme: session.theme,
+      wetBulb: session.wetBulb,
     });
 
-    await interaction.followUp({ content: rendered.content, files: rendered.files });
+    await interaction.followUp({
+      content: rendered.content,
+      files: rendered.files,
+      embeds: rendered.embeds,
+    });
   }
 }
