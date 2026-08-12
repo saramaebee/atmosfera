@@ -7,14 +7,19 @@ import {
   ApplicationCommandRegistries,
   RegisterBehavior,
   SapphireClient,
+  Store,
   container,
 } from '@sapphire/framework';
 import { GatewayIntentBits } from 'discord.js';
 import { startInternalApi } from './internal-api';
+import { SkipTestFilesStrategy } from './lib/skipTestFilesStrategy';
 
 // Bulk-overwrite so commands that aren't in our registry (e.g. leftover
 // commands from removed features) get deleted on startup.
 ApplicationCommandRegistries.setDefaultBehaviorWhenNotIdentical(RegisterBehavior.BulkOverwrite);
+
+// Must be set before the client constructs its stores.
+Store.defaultStrategy = new SkipTestFilesStrategy();
 
 declare module '@sapphire/framework' {
   interface Container {

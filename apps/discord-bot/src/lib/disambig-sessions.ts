@@ -1,6 +1,6 @@
 import type { City } from '@atmosfera/db';
 import type { GeocodeCandidate } from '@atmosfera/geocode';
-import type { CommandKind, CompareChartChoice } from './charts';
+import type { CommandKind, CompareChartChoice, RadarMode } from './charts';
 
 /**
  * One position in the original query list. If a position needs disambiguation,
@@ -19,6 +19,8 @@ export interface DisambigSession {
   slots: QuerySlot[];
   /** Only meaningful for command='compare'. */
   chart?: CompareChartChoice;
+  /** Only meaningful for command='radar'. */
+  radarMode?: RadarMode;
   userId: string;
   guildId?: string;
   createdAt: number;

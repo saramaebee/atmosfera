@@ -11,6 +11,7 @@
     "@atmosfera/climate": "workspace:*",
     "@resvg/resvg-js": "^2.6.2",
     "d3": "^7.9.0",
+    "gifenc": "^1.0.3",
     "react": "^18.3.1",
     "satori": "^0.26.0",
     "suncalc": "^1.9.0"

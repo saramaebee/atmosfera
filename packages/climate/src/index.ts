@@ -24,6 +24,26 @@ export {
   WETDAY_SIGMA_DAYS,
 } from './smoothing';
 export {
+  worldPx,
+  radarViewport,
+  TILE_SIZE,
+  RADAR_ZOOM,
+  type TileRef,
+  type RadarViewport,
+} from './tilemath';
+export {
+  fetchRadarCatalog,
+  fetchRadarTile,
+  radarTileUrl,
+  mapWithConcurrency,
+  weatherMapsSchema,
+  RADAR_COLOR_SCHEME,
+  RADAR_OPTIONS,
+  type RadarCatalog,
+  type RadarFrame,
+} from './rainviewer';
+export { fetchBasemapTile, cartoTileUrl, basemapTilePath } from './basemap';
+export {
   wetBulbC,
   wetBulbLabel,
   cToF,
