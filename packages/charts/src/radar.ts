@@ -71,6 +71,30 @@ export interface RadarFrameSvgInput {
 
 const TILE = 256;
 
+/**
+ * Bottom-bar text widths are pinned with textLength so the attribution and
+ * the brand/generation stamp can never overlap: natural text width varies by
+ * ~15% across the fonts Resvg may resolve (Helvetica locally, DejaVu on the
+ * deploy VM), which is exactly what caused the two runs of text to collide.
+ * The stamp is split into two <text> elements (bold brand, then date) because
+ * Resvg mis-lays-out textLength on a <text> with a mixed-weight tspan,
+ * stacking the runs on top of each other.
+ * Attribution ends at 8+290=298; the stamp is right-anchored at width-8 and
+ * its pinned parts total at most 60+4+111=175, so it never starts left of
+ * 512-8-175=329.
+ */
+const ATTRIBUTION_TEXT = 'radar © RainViewer · © OpenStreetMap contributors © CARTO';
+const ATTRIBUTION_TEXT_LENGTH = 290;
+const STAMP_BRAND_LENGTH = 60;
+const STAMP_GAP = 4;
+const STAMP_MAX_DATE_LENGTH = 111;
+const STAMP_CHAR_WIDTH = 6;
+
+/** Pinned width of the "· <generated>" run, right-anchored at width-8. */
+function stampDateLength(generatedLabel: string): number {
+  return Math.min(STAMP_MAX_DATE_LENGTH, (2 + generatedLabel.length) * STAMP_CHAR_WIDTH);
+}
+
 /** Data URI for one PNG tile buffer, suitable for an SVG <image> href. */
 export function pngTileDataUri(buf: Buffer): string {
   return `data:image/png;base64,${buf.toString('base64')}`;
@@ -125,8 +149,9 @@ export function renderRadarFrameSvg(input: RadarFrameSvgInput): string {
   <text x="${12 + pillWidth / 2}" y="33" font-size="15" font-weight="700" fill="${text}" text-anchor="middle" font-family="sans-serif">${escapeXml(timeLabel)}</text>
   <text x="${width - 12}" y="33" font-size="13" fill="${text}" text-anchor="end" font-family="sans-serif">${escapeXml(cityName)}</text>
   <rect x="0" y="${height - 20}" width="${width}" height="20" fill="${barFill}" fill-opacity="${barOpacity}"/>
-  <text x="8" y="${height - 6}" font-size="10" fill="${muted}" font-family="sans-serif">radar © RainViewer · map © OpenStreetMap contributors © CARTO</text>
-  <text x="${width - 8}" y="${height - 6}" font-size="10" fill="${muted}" text-anchor="end" font-family="sans-serif"><tspan font-weight="700">atmósfera</tspan> · ${escapeXml(generatedLabel)}</text>
+  <text x="8" y="${height - 6}" font-size="10" fill="${muted}" font-family="sans-serif" textLength="${ATTRIBUTION_TEXT_LENGTH}" lengthAdjust="spacingAndGlyphs">${ATTRIBUTION_TEXT}</text>
+  <text x="${width - 8 - stampDateLength(generatedLabel) - STAMP_GAP}" y="${height - 6}" font-size="10" font-weight="700" fill="${muted}" text-anchor="end" font-family="sans-serif" textLength="${STAMP_BRAND_LENGTH}" lengthAdjust="spacingAndGlyphs">atmósfera</text>
+  <text x="${width - 8}" y="${height - 6}" font-size="10" fill="${muted}" text-anchor="end" font-family="sans-serif" textLength="${stampDateLength(generatedLabel)}" lengthAdjust="spacingAndGlyphs">· ${escapeXml(generatedLabel)}</text>
 </svg>`;
 }
 
