@@ -28,6 +28,7 @@ import {
   loadClimateCube,
   mapWithConcurrency,
   radarViewport,
+  selectDailyForecast,
   selectUpcomingHours,
 } from '@atmosfera/climate';
 import type { City } from '@atmosfera/db';
@@ -141,7 +142,8 @@ function headline(command: CommandKind, cities: City[], cubes: ClimateCube[]): s
 async function buildNowMessage(city: City, theme: ChartTheme): Promise<RenderedMessage> {
   const forecast = await fetchForecastNow(city.latitude, city.longitude);
   const upcoming = selectUpcomingHours(forecast);
-  const input = nowCardInputFromForecast(cityDisplayName(city), forecast, upcoming);
+  const daily = selectDailyForecast(forecast);
+  const input = nowCardInputFromForecast(cityDisplayName(city), forecast, upcoming, daily);
 
   // Not renderChartCached: that cache is keyed on lat/lon + cube version and
   // persists forever, which is wrong for a forecast. The render itself is
@@ -149,7 +151,7 @@ async function buildNowMessage(city: City, theme: ChartTheme): Promise<RenderedM
   const png = svgToPng(renderNowCardSvg(input, theme));
 
   return {
-    content: `**${cityDisplayName(city)}** — current conditions & next 24 h.\n-# ${OPEN_METEO_ATTRIBUTION}`,
+    content: `**${cityDisplayName(city)}** — current conditions, next 24 h & 8-day outlook.\n-# ${OPEN_METEO_ATTRIBUTION}`,
     files: [new AttachmentBuilder(png, { name: `now-${slugify(city.canonicalName)}.png` })],
   };
 }

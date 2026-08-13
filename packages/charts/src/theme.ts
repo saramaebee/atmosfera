@@ -49,6 +49,12 @@ export interface ChartTheme {
   naColor: string;
   /** Halo separating the muggy peak dot from its line — always the page color. */
   peakHalo: string;
+  /**
+   * Precipitation-probability text on the now card. Related to but distinct
+   * from the theme-invariant RAIN_COLOR icon stroke in weather-icons.ts —
+   * fine text needs more contrast per background than a glyph stroke does.
+   */
+  precip: string;
   radar: RadarTheme;
 }
 
@@ -65,6 +71,7 @@ export const LIGHT_THEME: ChartTheme = {
   divider: '#eef2f7',
   naColor: '#e5e7eb',
   peakHalo: '#ffffff',
+  precip: '#2563eb',
   radar: {
     backdrop: '#e8e8e6',
     basemapStyle: 'light',
@@ -96,6 +103,7 @@ export const DARK_THEME: ChartTheme = {
   divider: '#28282d',
   naColor: '#37383f',
   peakHalo: '#1a1a1e',
+  precip: '#60a5fa',
   radar: {
     // Matches the dark_nolabels tile tone (not the Discord bg): it only shows
     // in polar blank slots and sub-pixel seams between tiles.

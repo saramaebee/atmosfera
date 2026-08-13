@@ -13,7 +13,12 @@ import {
   resolveTheme,
   svgToPng,
 } from '@atmosfera/charts';
-import { fetchForecastNow, loadClimateCube, selectUpcomingHours } from '@atmosfera/climate';
+import {
+  fetchForecastNow,
+  loadClimateCube,
+  selectDailyForecast,
+  selectUpcomingHours,
+} from '@atmosfera/climate';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { formatCandidate, resolveCity } from '@atmosfera/geocode';
@@ -121,8 +126,9 @@ async function main(): Promise<void> {
       }
       const forecast = await fetchForecastNow(city.latitude, city.longitude);
       const upcoming = selectUpcomingHours(forecast);
+      const daily = selectDailyForecast(forecast);
       const png = svgToPng(
-        renderNowCardSvg(nowCardInputFromForecast(displayName, forecast, upcoming), theme),
+        renderNowCardSvg(nowCardInputFromForecast(displayName, forecast, upcoming, daily), theme),
       );
       const outPath = args.out ?? `out/now-${slugify(city.canonicalName)}.png`;
       mkdirSync(dirname(outPath), { recursive: true });

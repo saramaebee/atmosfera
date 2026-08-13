@@ -21,6 +21,13 @@ export const forecastResponseSchema = z.object({
     weather_code: nullableNumberArray,
     is_day: nullableNumberArray,
   }),
+  daily: z.object({
+    time: z.array(z.string()),
+    weather_code: nullableNumberArray,
+    temperature_2m_max: nullableNumberArray,
+    temperature_2m_min: nullableNumberArray,
+    precipitation_probability_max: nullableNumberArray,
+  }),
 });
 
 export type ForecastNow = z.infer<typeof forecastResponseSchema>;
@@ -62,8 +69,13 @@ export async function fetchForecastNow(lat: number, lon: number): Promise<Foreca
     'temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m',
   );
   url.searchParams.set('hourly', 'temperature_2m,weather_code,is_day');
-  // Two days of local-time hours: enough for current hour + 21h even at 23:00.
-  url.searchParams.set('forecast_days', '2');
+  url.searchParams.set(
+    'daily',
+    'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+  );
+  // Eight days: covers the daily strip, and far more hourly than the
+  // current hour + 21h the hourly strip needs.
+  url.searchParams.set('forecast_days', '8');
   url.searchParams.set('timezone', 'auto');
 
   const res = await fetch(url);
@@ -107,6 +119,49 @@ export function selectUpcomingHours(
     const isDay = forecast.hourly.is_day[j];
     if (tempC == null || weatherCode == null || isDay == null) continue;
     out.push({ time: forecast.hourly.time[j]!, tempC, weatherCode, isDay: isDay === 1 });
+  }
+  return out;
+}
+
+export interface DailyEntry {
+  /** Local date, e.g. "2026-08-13". */
+  date: string;
+  weatherCode: number;
+  tempMaxC: number;
+  tempMinC: number;
+  /** Null when the provider has no probability for that day. */
+  precipProbPct: number | null;
+}
+
+/**
+ * Pick the daily strip entries starting with today (city-local), `count` days.
+ * Days missing a code or temperature are skipped; a missing precipitation
+ * probability is carried through as null so the day still renders.
+ */
+export function selectDailyForecast(forecast: ForecastNow, count = 8): DailyEntry[] {
+  const today = forecast.current.time.slice(0, 10);
+  const idx = forecast.daily.time.indexOf(today);
+  if (idx === -1) {
+    throw new Error(
+      `Forecast current date ${today} not found in daily series (${forecast.daily.time.length} entries)`,
+    );
+  }
+
+  const out: DailyEntry[] = [];
+  for (let i = 0; i < count; i++) {
+    const j = idx + i;
+    if (j >= forecast.daily.time.length) break;
+    const weatherCode = forecast.daily.weather_code[j];
+    const tempMaxC = forecast.daily.temperature_2m_max[j];
+    const tempMinC = forecast.daily.temperature_2m_min[j];
+    if (weatherCode == null || tempMaxC == null || tempMinC == null) continue;
+    out.push({
+      date: forecast.daily.time[j]!,
+      weatherCode,
+      tempMaxC,
+      tempMinC,
+      precipProbPct: forecast.daily.precipitation_probability_max[j] ?? null,
+    });
   }
   return out;
 }
