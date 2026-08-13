@@ -78,8 +78,9 @@ describe('renderRadarFrameSvg', () => {
     expect(svg.match(/opacity="0.75"/g)).toHaveLength(9);
     expect(svg).toContain('2:30 PM');
     expect(svg).toContain('Miami, Florida, United States');
-    expect(svg).toContain('radar © RainViewer · map © OpenStreetMap contributors © CARTO');
-    expect(svg).toContain('<tspan font-weight="700">atmósfera</tspan> · Aug 12, 2:35 PM');
+    expect(svg).toContain('radar © RainViewer · © OpenStreetMap contributors © CARTO');
+    expect(svg).toContain('>atmósfera</text>');
+    expect(svg).toContain('· Aug 12, 2:35 PM');
     // City marker at the window center.
     expect(svg).toContain('<circle cx="256" cy="256" r="4" fill="#2563eb"/>');
   });
@@ -115,7 +116,7 @@ describe('renderRadarFrameSvg', () => {
 
     const light = renderRadarFrameSvg(frameInput({ theme: LIGHT_THEME }));
     expect(light).toContain(`fill="${LIGHT_THEME.radar.backdrop}"`);
-    expect(light).toContain('radar © RainViewer · map © OpenStreetMap contributors © CARTO');
+    expect(light).toContain('radar © RainViewer · © OpenStreetMap contributors © CARTO');
     expect(light).not.toBe(dark);
   });
 
@@ -133,6 +134,21 @@ describe('renderRadarFrameSvg', () => {
   it('omits the labels layer and filter when not provided', () => {
     const svg = renderRadarFrameSvg(frameInput());
     expect(svg).not.toContain('labelboost');
+  });
+
+  it('pins bottom-bar text widths so attribution and stamp cannot overlap', () => {
+    // Even an absurdly long stamp must stay clear of the attribution's pinned
+    // right edge — textLength makes this hold in any font Resvg resolves.
+    const svg = renderRadarFrameSvg(
+      frameInput({ generatedLabel: 'September 30, 12:30 PM extra long' }),
+    );
+    const lengths = [...svg.matchAll(/textLength="(\d+)"/g)].map((m) => Number(m[1]));
+    expect(lengths).toHaveLength(3);
+    const [attribution, brand, date] = lengths as [number, number, number];
+    const attributionEnd = 8 + attribution;
+    // Brand is right-anchored before the date run plus a 4px gap.
+    const stampStart = 512 - 8 - date - 4 - brand;
+    expect(attributionEnd).toBeLessThan(stampStart);
   });
 });
 
