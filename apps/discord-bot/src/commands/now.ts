@@ -25,7 +25,7 @@ export class NowCommand extends Command {
           addThemeOption(
             builder
               .setName('now')
-              .setDescription('Current weather and next 24 hours for a city')
+              .setDescription('Current weather, next 24 hours, and 8-day forecast for a city')
               .addStringOption((opt) =>
                 opt
                   .setName('city')

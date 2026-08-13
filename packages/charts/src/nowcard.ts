@@ -1,4 +1,4 @@
-import { type ForecastNow, type UpcomingHour, cToF } from '@atmosfera/climate';
+import { type DailyEntry, type ForecastNow, type UpcomingHour, cToF } from '@atmosfera/climate';
 import { type ChartTheme, DARK_THEME } from './theme';
 import { weatherInfo } from './weather-codes';
 import { weatherIconSvg } from './weather-icons';
@@ -9,6 +9,15 @@ export interface NowCardHourEntry {
   tempC: number;
   weatherCode: number;
   isDay: boolean;
+}
+
+export interface NowCardDayEntry {
+  /** Local date, e.g. "2026-08-13". */
+  dateIso: string;
+  weatherCode: number;
+  tempMaxC: number;
+  tempMinC: number;
+  precipProbPct: number | null;
 }
 
 export interface NowCardInput {
@@ -24,10 +33,12 @@ export interface NowCardInput {
     windDirectionDeg: number;
   };
   upcoming: NowCardHourEntry[];
+  daily?: NowCardDayEntry[];
 }
 
 export const NOW_CARD_WIDTH = 900;
-const HEIGHT = 448;
+const HEIGHT_BASE = 448;
+const HEIGHT_WITH_DAILY = 624;
 const PAD = 40;
 
 const COMPASS_POINTS = [
@@ -62,11 +73,21 @@ export function hourLabel(iso: string): string {
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function weekdayName(iso: string): string {
+// Field-by-field parse (works for "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm") — the
+// timestamps are already city-local, so Date is only used for day-of-week math.
+function weekdayIndex(iso: string): number {
   const year = Number.parseInt(iso.slice(0, 4), 10);
   const month = Number.parseInt(iso.slice(5, 7), 10);
   const day = Number.parseInt(iso.slice(8, 10), 10);
-  return WEEKDAYS[new Date(year, month - 1, day).getDay()]!;
+  return new Date(year, month - 1, day).getDay();
+}
+
+function weekdayName(iso: string): string {
+  return WEEKDAYS[weekdayIndex(iso)]!;
+}
+
+function shortWeekdayName(iso: string): string {
+  return WEEKDAYS[weekdayIndex(iso)]!.slice(0, 3);
 }
 
 function escapeXml(s: string): string {
@@ -82,6 +103,7 @@ export function nowCardInputFromForecast(
   cityName: string,
   forecast: ForecastNow,
   upcoming: UpcomingHour[],
+  daily?: DailyEntry[],
 ): NowCardInput {
   return {
     cityName,
@@ -100,11 +122,18 @@ export function nowCardInputFromForecast(
       weatherCode: h.weatherCode,
       isDay: h.isDay,
     })),
+    daily: daily?.map((d) => ({
+      dateIso: d.date,
+      weatherCode: d.weatherCode,
+      tempMaxC: d.tempMaxC,
+      tempMinC: d.tempMinC,
+      precipProbPct: d.precipProbPct,
+    })),
   };
 }
 
 export function renderNowCardSvg(input: NowCardInput, theme: ChartTheme = DARK_THEME): string {
-  const { current, upcoming } = input;
+  const { current, upcoming, daily } = input;
   const info = weatherInfo(current.weatherCode, current.isDay);
   const innerWidth = NOW_CARD_WIDTH - PAD * 2;
   const TEXT = theme.text;
@@ -140,12 +169,48 @@ export function renderNowCardSvg(input: NowCardInput, theme: ChartTheme = DARK_T
     })
     .join('');
 
-  const footer = `
-  <line x1="${PAD}" y1="392" x2="${NOW_CARD_WIDTH - PAD}" y2="392" stroke="${DIVIDER}" stroke-width="1"/>
-  <text x="${PAD}" y="424" font-size="14" fill="${MUTED}" font-family="sans-serif">Humidity ${Math.round(current.humidityPct)}%</text>
-  <text x="${NOW_CARD_WIDTH - PAD}" y="424" font-size="14" fill="${MUTED}" text-anchor="end" font-family="sans-serif">Wind ${Math.round(current.windSpeedKmh)} km/h ${compassPoint(current.windDirectionDeg)}</text>`;
+  // Daily strip: one column per day below a divider at the hourly strip's
+  // old footer position, so the top half of the card is unchanged.
+  const hasDaily = daily != null && daily.length > 0;
+  let dailySection = '';
+  if (hasDaily) {
+    const dayColWidth = innerWidth / daily.length;
+    const columns = daily
+      .map((d, i) => {
+        const cx = PAD + dayColWidth * (i + 0.5);
+        // Open-Meteo's daily code is the day's dominant condition — always
+        // rendered with the day-variant icon.
+        const info = weatherInfo(d.weatherCode, true);
+        const label = i === 0 ? 'Today' : shortWeekdayName(d.dateIso);
+        const precip =
+          d.precipProbPct != null && d.precipProbPct > 0
+            ? `
+  <text x="${cx.toFixed(2)}" y="492" font-size="12" fill="${theme.precip}" text-anchor="middle" font-family="sans-serif">${Math.round(d.precipProbPct)}%</text>`
+            : '';
+        const maxC = Math.round(d.tempMaxC);
+        const minC = Math.round(d.tempMinC);
+        const maxF = Math.round(cToF(d.tempMaxC));
+        const minF = Math.round(cToF(d.tempMinC));
+        return `
+  <text x="${cx.toFixed(2)}" y="424" font-size="13" fill="${MUTED}" text-anchor="middle" font-family="sans-serif">${label}</text>
+  ${weatherIconSvg(info.icon, cx - 18, 436, 36, theme.name)}${precip}
+  <text x="${cx.toFixed(2)}" y="518" text-anchor="middle" font-family="sans-serif"><tspan font-size="18" font-weight="700" fill="${TEXT}">${maxC}°</tspan><tspan font-size="14" fill="${MUTED}" dx="6">${minC}°</tspan></text>
+  <text x="${cx.toFixed(2)}" y="538" font-size="12" fill="${MUTED}" text-anchor="middle" font-family="sans-serif">${maxF}° ${minF}°F</text>`;
+      })
+      .join('');
+    dailySection = `
+  <line x1="${PAD}" y1="392" x2="${NOW_CARD_WIDTH - PAD}" y2="392" stroke="${DIVIDER}" stroke-width="1"/>${columns}`;
+  }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${NOW_CARD_WIDTH}" height="${HEIGHT}" viewBox="0 0 ${NOW_CARD_WIDTH} ${HEIGHT}">
-  <rect width="${NOW_CARD_WIDTH}" height="${HEIGHT}" fill="${theme.bg}"/>${header}${hero}${strip}${footer}
+  const height = hasDaily ? HEIGHT_WITH_DAILY : HEIGHT_BASE;
+  const footerDividerY = hasDaily ? 566 : 392;
+  const footerTextY = hasDaily ? 598 : 424;
+  const footer = `
+  <line x1="${PAD}" y1="${footerDividerY}" x2="${NOW_CARD_WIDTH - PAD}" y2="${footerDividerY}" stroke="${DIVIDER}" stroke-width="1"/>
+  <text x="${PAD}" y="${footerTextY}" font-size="14" fill="${MUTED}" font-family="sans-serif">Humidity ${Math.round(current.humidityPct)}%</text>
+  <text x="${NOW_CARD_WIDTH - PAD}" y="${footerTextY}" font-size="14" fill="${MUTED}" text-anchor="end" font-family="sans-serif">Wind ${Math.round(current.windSpeedKmh)} km/h ${compassPoint(current.windDirectionDeg)}</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${NOW_CARD_WIDTH}" height="${height}" viewBox="0 0 ${NOW_CARD_WIDTH} ${height}">
+  <rect width="${NOW_CARD_WIDTH}" height="${height}" fill="${theme.bg}"/>${header}${hero}${strip}${dailySection}${footer}
 </svg>`;
 }

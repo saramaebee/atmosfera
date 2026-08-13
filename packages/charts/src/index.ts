@@ -18,6 +18,7 @@ export {
   type RadarGifOptions,
 } from './radar';
 export {
+  type NowCardDayEntry,
   type NowCardHourEntry,
   type NowCardInput,
   NOW_CARD_WIDTH,

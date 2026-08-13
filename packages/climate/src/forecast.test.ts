@@ -3,6 +3,7 @@ import {
   type ForecastNow,
   forecastCacheKey,
   forecastResponseSchema,
+  selectDailyForecast,
   selectUpcomingHours,
 } from './forecast';
 
@@ -33,6 +34,13 @@ function makeFixture(currentTime: string): ForecastNow {
       wind_direction_10m: 180,
     },
     hourly: { time, temperature_2m, weather_code, is_day },
+    daily: {
+      time: ['08', '09', '10', '11', '12', '13', '14', '15'].map((d) => `2026-08-${d}`),
+      weather_code: [2, 3, 61, 0, 0, 2, 95, 1],
+      temperature_2m_max: [35, 36, 36, 36, 38, 37, 35, 36],
+      temperature_2m_min: [25, 26, 26, 26, 27, 27, 26, 25],
+      precipitation_probability_max: [30, 45, 80, 0, 5, 20, 90, null],
+    },
   };
 }
 
@@ -48,6 +56,58 @@ describe('forecastResponseSchema', () => {
       current: { ...makeFixture('2026-08-08T14:15').current, temperature_2m: 'hot' },
     };
     expect(() => forecastResponseSchema.parse(bad)).toThrow();
+  });
+
+  it('rejects a mangled daily block', () => {
+    const fixture = makeFixture('2026-08-08T14:15');
+    const bad = {
+      ...fixture,
+      daily: { ...fixture.daily, temperature_2m_max: 'hot' },
+    };
+    expect(() => forecastResponseSchema.parse(bad)).toThrow();
+  });
+});
+
+describe('selectDailyForecast', () => {
+  it('returns 8 entries starting with today', () => {
+    const days = selectDailyForecast(makeFixture('2026-08-08T14:15'));
+    expect(days).toHaveLength(8);
+    expect(days[0]!.date).toBe('2026-08-08');
+    expect(days[7]!.date).toBe('2026-08-15');
+    expect(days[0]!.tempMaxC).toBe(35);
+    expect(days[0]!.tempMinC).toBe(25);
+    expect(days[0]!.weatherCode).toBe(2);
+    expect(days[0]!.precipProbPct).toBe(30);
+  });
+
+  it('starts from the current local date, not the array start', () => {
+    const days = selectDailyForecast(makeFixture('2026-08-09T02:15'));
+    expect(days[0]!.date).toBe('2026-08-09');
+    expect(days).toHaveLength(7);
+  });
+
+  it('respects count', () => {
+    const days = selectDailyForecast(makeFixture('2026-08-08T14:15'), 3);
+    expect(days.map((d) => d.date)).toEqual(['2026-08-08', '2026-08-09', '2026-08-10']);
+  });
+
+  it('skips days missing a temperature, preserving order', () => {
+    const fixture = makeFixture('2026-08-08T14:15');
+    fixture.daily.temperature_2m_max[1] = null;
+    const days = selectDailyForecast(fixture);
+    expect(days).toHaveLength(7);
+    expect(days[1]!.date).toBe('2026-08-10');
+  });
+
+  it('carries a null precipitation probability through instead of skipping', () => {
+    const days = selectDailyForecast(makeFixture('2026-08-08T14:15'));
+    expect(days[7]!.date).toBe('2026-08-15');
+    expect(days[7]!.precipProbPct).toBeNull();
+  });
+
+  it('throws when the current date is missing from the daily series', () => {
+    const fixture = makeFixture('2026-08-20T14:15');
+    expect(() => selectDailyForecast(fixture)).toThrow(/not found in daily series/);
   });
 });
 

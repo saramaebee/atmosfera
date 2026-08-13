@@ -11,7 +11,9 @@ export { fetchHistoricalYear, cacheKey, rawCachePath } from './openmeteo';
 export {
   fetchForecastNow,
   forecastResponseSchema,
+  selectDailyForecast,
   selectUpcomingHours,
+  type DailyEntry,
   type ForecastNow,
   type UpcomingHour,
 } from './forecast';
