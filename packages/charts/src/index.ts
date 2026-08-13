@@ -29,6 +29,14 @@ export {
 export { type WeatherIconKey, type WeatherInfo, weatherInfo } from './weather-codes';
 export { weatherIconSvg } from './weather-icons';
 export { TEMPERATURE_BANDS, colorForCelsius, bandForCelsius } from './palette';
+export {
+  type ChartTheme,
+  type RadarTheme,
+  type ThemeName,
+  DARK_THEME,
+  LIGHT_THEME,
+  resolveTheme,
+} from './theme';
 export { computeTwilightYear, darkHours } from './twilight';
 export type { DayTwilight } from './twilight';
 export type { TemperatureBand } from './palette';

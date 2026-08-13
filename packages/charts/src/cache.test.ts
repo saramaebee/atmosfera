@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { ClimateCube } from '@atmosfera/climate';
-import { compareCubesCanonical } from './cache';
+import { chartCachePath, compareCubesCanonical } from './cache';
 
 function cubeAt(latitude: number, longitude: number): ClimateCube {
   return {
@@ -48,5 +48,21 @@ describe('compareCubesCanonical', () => {
     const b = [reykjavik, ba].sort(compareCubesCanonical);
     expect(a.map((c) => c.latitude)).toEqual(b.map((c) => c.latitude));
     expect(a[0]).toBe(ba);
+  });
+});
+
+describe('chartCachePath', () => {
+  it('partitions the cache by theme so light and dark never collide', () => {
+    const cubes = [cubeAt(-34.6037, -58.3816)];
+    const dark = chartCachePath('heatmap', cubes, 'dark');
+    const light = chartCachePath('heatmap', cubes, 'light');
+    expect(dark).not.toBe(light);
+    expect(dark).toContain('heatmap-dark-');
+    expect(light).toContain('heatmap-light-');
+  });
+
+  it('defaults to the dark theme and stays stable for equal inputs', () => {
+    const cubes = [cubeAt(-34.6037, -58.3816)];
+    expect(chartCachePath('muggy', cubes)).toBe(chartCachePath('muggy', cubes, 'dark'));
   });
 });

@@ -42,7 +42,7 @@ export {
   type RadarCatalog,
   type RadarFrame,
 } from './rainviewer';
-export { fetchBasemapTile, cartoTileUrl, basemapTilePath } from './basemap';
+export { type BasemapStyle, fetchBasemapTile, cartoTileUrl, basemapTilePath } from './basemap';
 export {
   wetBulbC,
   wetBulbLabel,

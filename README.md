@@ -25,6 +25,8 @@ The muggy-probability comparison: Tokyo's monsoon season hits 100% in early Augu
 | `/wet <city>` | Wet-day probability (≥ 1 mm of rain) |
 | `/compare <city_a> <city_b> [chart]` | Both cities side-by-side. `chart` choices: `heatmap`, `muggy`, `wetday`, `all` |
 
+Every graphics command (climate + live weather) also takes an optional `theme` choice: `dark` (default) or `light`.
+
 **Live weather:**
 
 | Command | What it does |
@@ -136,8 +138,8 @@ bun test                                   # 274 tests across 35 files
 bun x tsc --noEmit -p tsconfig.json        # full repo typecheck
 bun x biome check .                        # lint + format check
 bun x biome format --write .               # autofix formatting
-bun run render <city> [<city>] --chart <muggy|wetday|heatmap>   # CLI
-bun run radar <city> [--out path.gif]      # radar GIF end-to-end, no Discord
+bun run render <city> [<city>] --chart <muggy|wetday|heatmap|now> [--theme light|dark]   # CLI
+bun run radar <city> [--theme light|dark] [--out path.gif]  # radar GIF end-to-end, no Discord
 ```
 
 Slash commands and library code live side by side; the CLI hits the same functions the bot does, so feature work can be iterated visually before being wired into Discord.
@@ -165,4 +167,4 @@ Code is [Apache 2.0](LICENSE).
 
 Climate data — historical hourly archive and geocoding — comes from [Open-Meteo](https://open-meteo.com) under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/). The data is reused with modification: hourly observations are aggregated into 15-year climatologies, smoothed, and converted into chart imagery. Every chart message in Discord credits Open-Meteo in its footer.
 
-Radar imagery comes from [RainViewer](https://www.rainviewer.com)'s free public API. Basemap tiles are [CARTO](https://carto.com) Positron, © OpenStreetMap contributors © CARTO, free for non-commercial use **conditional on attribution** — which is why every radar frame carries the credit line in its bottom bar, and every radar message repeats it. Do not remove either while these providers are in use (see [ADR 0001](docs/adr/0001-radar-imagery-stack.md)).
+Radar imagery comes from [RainViewer](https://www.rainviewer.com)'s free public API. Basemap tiles are [CARTO](https://carto.com) Positron (light theme) / Dark Matter (dark theme), © OpenStreetMap contributors © CARTO, free for non-commercial use **conditional on attribution** — which is why every radar frame carries the credit line in its bottom bar, and every radar message repeats it. Do not remove either while these providers are in use (see [ADR 0001](docs/adr/0001-radar-imagery-stack.md)).

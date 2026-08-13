@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import type { ClimateCube } from '@atmosfera/climate';
 import { svgToPng } from './raster';
 import { renderTemperatureComparisonSvg } from './temperature';
+import { DARK_THEME, LIGHT_THEME } from './theme';
 
 function makeSyntheticCube(meanTempC: number, lat: number, lon: number): ClimateCube {
   return {
@@ -38,6 +39,15 @@ describe('renderTemperatureComparisonSvg', () => {
     // 9 band swatches; can grep for one of the named bands
     expect(svg).toContain('sweltering');
     expect(svg).toContain('frigid');
+  });
+
+  it('renders dark by default and light on request', () => {
+    const cities = [{ name: 'TestCity', cube: makeSyntheticCube(20, 0, 0) }];
+    const dark = renderTemperatureComparisonSvg(cities);
+    const light = renderTemperatureComparisonSvg(cities, LIGHT_THEME);
+    expect(dark).toContain(`fill="${DARK_THEME.bg}"`);
+    expect(light).toContain(`fill="${LIGHT_THEME.bg}"`);
+    expect(light).not.toBe(dark);
   });
 
   it('renders 8760 cells per city', () => {

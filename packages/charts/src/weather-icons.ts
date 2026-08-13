@@ -1,7 +1,10 @@
+import type { ThemeName } from './theme';
 import type { WeatherIconKey } from './weather-codes';
 
 const SUN_COLOR = '#f59e0b';
-const MOON_COLOR = '#64748b';
+// The moon is the one glyph color that fails on a dark background, so it is
+// the only per-theme value; everything else reads fine on both.
+const MOON_COLORS: Record<ThemeName, string> = { light: '#64748b', dark: '#a3adc2' };
 const CLOUD_COLOR = '#9ca3af';
 const LIGHT_CLOUD_COLOR = '#c7ccd4';
 const DARK_CLOUD_COLOR = '#6b7280';
@@ -68,23 +71,36 @@ function snowFlakes(): string {
     .join('');
 }
 
-const GLYPHS: Record<WeatherIconKey, string> = {
-  sun: sunGlyph(12, 12, 5),
-  moon: `<path d="${MOON_PATH}" fill="${MOON_COLOR}"/>`,
-  'partly-day': `${sunGlyph(8.5, 8, 3.2)}${cloudGlyph(CLOUD_COLOR, 'translate(4.5,4.5) scale(0.82)')}`,
-  'partly-night': `<path d="${MOON_PATH}" fill="${MOON_COLOR}" transform="translate(2.5,1.5) scale(0.48)"/>${cloudGlyph(CLOUD_COLOR, 'translate(4.5,4.5) scale(0.82)')}`,
-  cloud: cloudGlyph(CLOUD_COLOR),
-  fog: `${cloudGlyph(LIGHT_CLOUD_COLOR, 'translate(2.4,-3.5) scale(0.8)')}<line x1="4.5" y1="17.5" x2="19.5" y2="17.5" stroke="${CLOUD_COLOR}" stroke-width="1.8" stroke-linecap="round"/><line x1="6.5" y1="21" x2="17.5" y2="21" stroke="${CLOUD_COLOR}" stroke-width="1.8" stroke-linecap="round"/>`,
-  drizzle: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${drizzleDots()}`,
-  rain: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${rainDrops()}`,
-  snow: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${snowFlakes()}`,
-  thunder: `${cloudGlyph(DARK_CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}<polygon points="12.5,12 7.5,18 11.5,18 11,22.5 16.5,15.5 12.5,15.5" fill="${SUN_COLOR}"/>`,
+function buildGlyphs(moonColor: string): Record<WeatherIconKey, string> {
+  return {
+    sun: sunGlyph(12, 12, 5),
+    moon: `<path d="${MOON_PATH}" fill="${moonColor}"/>`,
+    'partly-day': `${sunGlyph(8.5, 8, 3.2)}${cloudGlyph(CLOUD_COLOR, 'translate(4.5,4.5) scale(0.82)')}`,
+    'partly-night': `<path d="${MOON_PATH}" fill="${moonColor}" transform="translate(2.5,1.5) scale(0.48)"/>${cloudGlyph(CLOUD_COLOR, 'translate(4.5,4.5) scale(0.82)')}`,
+    cloud: cloudGlyph(CLOUD_COLOR),
+    fog: `${cloudGlyph(LIGHT_CLOUD_COLOR, 'translate(2.4,-3.5) scale(0.8)')}<line x1="4.5" y1="17.5" x2="19.5" y2="17.5" stroke="${CLOUD_COLOR}" stroke-width="1.8" stroke-linecap="round"/><line x1="6.5" y1="21" x2="17.5" y2="21" stroke="${CLOUD_COLOR}" stroke-width="1.8" stroke-linecap="round"/>`,
+    drizzle: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${drizzleDots()}`,
+    rain: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${rainDrops()}`,
+    snow: `${cloudGlyph(CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}${snowFlakes()}`,
+    thunder: `${cloudGlyph(DARK_CLOUD_COLOR, PRECIP_CLOUD_TRANSFORM)}<polygon points="12.5,12 7.5,18 11.5,18 11,22.5 16.5,15.5 12.5,15.5" fill="${SUN_COLOR}"/>`,
+  };
+}
+
+const GLYPHS: Record<ThemeName, Record<WeatherIconKey, string>> = {
+  light: buildGlyphs(MOON_COLORS.light),
+  dark: buildGlyphs(MOON_COLORS.dark),
 };
 
 /**
  * Render one weather glyph as an SVG fragment. (x, y) is the top-left corner
  * of the icon's bounding box; `size` is its rendered width/height in px.
  */
-export function weatherIconSvg(key: WeatherIconKey, x: number, y: number, size: number): string {
-  return `<g transform="translate(${x},${y}) scale(${round2(size / 24)})">${GLYPHS[key]}</g>`;
+export function weatherIconSvg(
+  key: WeatherIconKey,
+  x: number,
+  y: number,
+  size: number,
+  theme: ThemeName = 'dark',
+): string {
+  return `<g transform="translate(${x},${y}) scale(${round2(size / 24)})">${GLYPHS[theme][key]}</g>`;
 }

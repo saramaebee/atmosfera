@@ -24,8 +24,8 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
 
 export const NA_COLOR = '#e5e7eb';
 
-export function colorForCelsius(t: number): string {
-  if (!Number.isFinite(t)) return NA_COLOR;
+export function colorForCelsius(t: number, naColor: string = NA_COLOR): string {
+  if (!Number.isFinite(t)) return naColor;
   for (const band of TEMPERATURE_BANDS) {
     if (t < band.maxC) return band.color;
   }
