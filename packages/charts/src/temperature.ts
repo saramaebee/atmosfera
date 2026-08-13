@@ -1,6 +1,7 @@
 import { type ClimateCube, gaussianSmooth1d } from '@atmosfera/climate';
 import { type MonthAxis, monthAxis, orientationForLatitude } from './orientation';
 import { TEMPERATURE_BANDS, colorForCelsius } from './palette';
+import { type ChartTheme, DARK_THEME } from './theme';
 import { computeTwilightYear } from './twilight';
 
 export interface CitySeries {
@@ -44,7 +45,10 @@ function smoothAlongDay(matrix: number[][], sigma: number): number[][] {
   return out;
 }
 
-export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
+export function renderTemperatureComparisonSvg(
+  cities: CitySeries[],
+  theme: ChartTheme = DARK_THEME,
+): string {
   if (cities.length === 0) throw new Error('renderTemperatureComparisonSvg: no cities');
   if (cities.length > 2) throw new Error('renderTemperatureComparisonSvg: max 2 cities');
 
@@ -74,7 +78,7 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
       for (let d = 0; d < 365; d++) {
         const dataDay = (d + axis.dayOffset) % 365;
         for (let h = 0; h < 24; h++) {
-          const color = colorForCelsius(smoothed[dataDay]![h]!);
+          const color = colorForCelsius(smoothed[dataDay]![h]!, theme.naColor);
           const x = MARGIN.left + d * cellWidth;
           const y = panelTop + h * cellHeight;
           cells.push(
@@ -112,8 +116,8 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
           const y = panelTop + h * cellHeight;
           const label =
             h === 0 || h === 24 ? '12am' : h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`;
-          return `<line x1="${MARGIN.left - 4}" x2="${MARGIN.left}" y1="${y.toFixed(2)}" y2="${y.toFixed(2)}" stroke="#9ca3af" stroke-width="1" />
-      <text x="${MARGIN.left - 8}" y="${(y + 4).toFixed(2)}" font-size="11" fill="#6b7280" text-anchor="end" font-family="sans-serif">${label}</text>`;
+          return `<line x1="${MARGIN.left - 4}" x2="${MARGIN.left}" y1="${y.toFixed(2)}" y2="${y.toFixed(2)}" stroke="${theme.tick}" stroke-width="1" />
+      <text x="${MARGIN.left - 8}" y="${(y + 4).toFixed(2)}" font-size="11" fill="${theme.muted}" text-anchor="end" font-family="sans-serif">${label}</text>`;
         })
         .join('\n      ');
 
@@ -126,7 +130,7 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
         .join('\n      ');
 
       // Panel border
-      const border = `<rect x="${MARGIN.left}" y="${panelTop}" width="${innerWidth}" height="${HEATMAP_INNER_HEIGHT}" fill="none" stroke="#94a3b8" stroke-width="1" />`;
+      const border = `<rect x="${MARGIN.left}" y="${panelTop}" width="${innerWidth}" height="${HEATMAP_INNER_HEIGHT}" fill="none" stroke="${theme.panelBorder}" stroke-width="1" />`;
 
       // Month labels for this panel, centered within each month band.
       const monthLabelY = panelTop + HEATMAP_INNER_HEIGHT + 16;
@@ -134,13 +138,13 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
         .map((doy, i) => {
           const monthCenter = doy + axis.lengths[i]! / 2;
           const x = MARGIN.left + monthCenter * cellWidth;
-          return `<text x="${x.toFixed(2)}" y="${monthLabelY.toFixed(2)}" font-size="13" fill="#6b7280" text-anchor="middle" font-family="sans-serif">${axis.labels[i]}</text>`;
+          return `<text x="${x.toFixed(2)}" y="${monthLabelY.toFixed(2)}" font-size="13" fill="${theme.muted}" text-anchor="middle" font-family="sans-serif">${axis.labels[i]}</text>`;
         })
         .join('\n      ');
 
       return `
-    <text x="${MARGIN.left}" y="${titleY}" font-size="17" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(city.name)}</text>
-    <text x="${(MARGIN.left + innerWidth).toFixed(2)}" y="${titleY}" font-size="12" fill="#6b7280" font-family="sans-serif" text-anchor="end">${city.cube.latitude.toFixed(2)}°, ${city.cube.longitude.toFixed(2)}° · ${escapeXml(city.cube.timezone)}</text>
+    <text x="${MARGIN.left}" y="${titleY}" font-size="17" font-weight="700" fill="${theme.text}" font-family="sans-serif">${escapeXml(city.name)}</text>
+    <text x="${(MARGIN.left + innerWidth).toFixed(2)}" y="${titleY}" font-size="12" fill="${theme.muted}" font-family="sans-serif" text-anchor="end">${city.cube.latitude.toFixed(2)}°, ${city.cube.longitude.toFixed(2)}° · ${escapeXml(city.cube.timezone)}</text>
       ${cells.join('\n      ')}
       ${nightRects.join('\n      ')}
       ${monthGrid}
@@ -163,8 +167,8 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
           ? `over ${band.minC}°C`
           : `${band.minC} to ${band.maxC}°C`;
     return `<rect x="${x.toFixed(2)}" y="${legendY}" width="${swatchWidth.toFixed(2)}" height="${swatchHeight}" fill="${band.color}" />
-    <text x="${(x + swatchWidth / 2).toFixed(2)}" y="${legendY + swatchHeight + 14}" font-size="11" font-weight="600" fill="#111827" text-anchor="middle" font-family="sans-serif">${band.name}</text>
-    <text x="${(x + swatchWidth / 2).toFixed(2)}" y="${legendY + swatchHeight + 28}" font-size="10" fill="#6b7280" text-anchor="middle" font-family="sans-serif">${rangeLabel}</text>`;
+    <text x="${(x + swatchWidth / 2).toFixed(2)}" y="${legendY + swatchHeight + 14}" font-size="11" font-weight="600" fill="${theme.text}" text-anchor="middle" font-family="sans-serif">${band.name}</text>
+    <text x="${(x + swatchWidth / 2).toFixed(2)}" y="${legendY + swatchHeight + 28}" font-size="10" fill="${theme.muted}" text-anchor="middle" font-family="sans-serif">${rangeLabel}</text>`;
   }).join('\n    ');
 
   const title =
@@ -174,9 +178,9 @@ export function renderTemperatureComparisonSvg(cities: CitySeries[]): string {
   const subtitle = `Mean temperature by hour of day across ${cities[0]!.cube.window.startYear}–${cities[0]!.cube.window.endYear}. Shaded regions: sun below horizon.`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${HEATMAP_WIDTH}" height="${totalHeight}" viewBox="0 0 ${HEATMAP_WIDTH} ${totalHeight}">
-  <rect width="${HEATMAP_WIDTH}" height="${totalHeight}" fill="#ffffff" />
-  <text x="${MARGIN.left}" y="22" font-size="18" font-weight="700" fill="#111827" font-family="sans-serif">${escapeXml(title)}</text>
-  <text x="${MARGIN.left}" y="38" font-size="11" fill="#6b7280" font-family="sans-serif">${escapeXml(subtitle)}</text>
+  <rect width="${HEATMAP_WIDTH}" height="${totalHeight}" fill="${theme.bg}" />
+  <text x="${MARGIN.left}" y="22" font-size="18" font-weight="700" fill="${theme.text}" font-family="sans-serif">${escapeXml(title)}</text>
+  <text x="${MARGIN.left}" y="38" font-size="11" fill="${theme.muted}" font-family="sans-serif">${escapeXml(subtitle)}</text>
 ${panels}
     ${legend}
 </svg>`;

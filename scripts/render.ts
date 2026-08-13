@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   type CitySeries,
+  type ThemeName,
   compareCubesCanonical,
   nowCardInputFromForecast,
   renderChartCached,
@@ -9,6 +10,7 @@ import {
   renderNowCardSvg,
   renderTemperatureComparisonSvg,
   renderWetDayComparisonSvg,
+  resolveTheme,
   svgToPng,
 } from '@atmosfera/charts';
 import { fetchForecastNow, loadClimateCube, selectUpcomingHours } from '@atmosfera/climate';
@@ -22,12 +24,14 @@ const CHART_KINDS: ChartKind[] = ['muggy', 'heatmap', 'wetday', 'now'];
 interface Args {
   cities: string[];
   chart: ChartKind;
+  theme: ThemeName;
   out: string | undefined;
 }
 
 function parseArgs(argv: string[]): Args {
   const cities: string[] = [];
   let chart: ChartKind = 'muggy';
+  let theme: ThemeName = 'dark';
   let out: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
@@ -38,6 +42,12 @@ function parseArgs(argv: string[]): Args {
         throw new Error(`Unsupported chart: "${v}". Supported: ${CHART_KINDS.join(', ')}.`);
       }
       chart = v;
+    } else if (a === '--theme') {
+      const v = argv[++i];
+      if (v !== 'light' && v !== 'dark') {
+        throw new Error(`Unsupported theme: "${v}". Supported: light, dark.`);
+      }
+      theme = v;
     } else if (a === '--out') {
       out = argv[++i];
     } else if (a.startsWith('--')) {
@@ -49,10 +59,10 @@ function parseArgs(argv: string[]): Args {
 
   if (cities.length === 0) {
     throw new Error(
-      `usage: bun run render <city> [<city>] [--chart ${CHART_KINDS.join('|')}] [--out path.png]`,
+      `usage: bun run render <city> [<city>] [--chart ${CHART_KINDS.join('|')}] [--theme light|dark] [--out path.png]`,
     );
   }
-  return { cities, chart, out };
+  return { cities, chart, theme, out };
 }
 
 function slugify(s: string): string {
@@ -72,6 +82,7 @@ async function main(): Promise<void> {
   migrateDb(db);
 
   const t0 = performance.now();
+  const theme = resolveTheme(args.theme);
   const series: CitySeries[] = [];
 
   for (const query of args.cities) {
@@ -111,7 +122,7 @@ async function main(): Promise<void> {
       const forecast = await fetchForecastNow(city.latitude, city.longitude);
       const upcoming = selectUpcomingHours(forecast);
       const png = svgToPng(
-        renderNowCardSvg(nowCardInputFromForecast(displayName, forecast, upcoming)),
+        renderNowCardSvg(nowCardInputFromForecast(displayName, forecast, upcoming), theme),
       );
       const outPath = args.out ?? `out/now-${slugify(city.canonicalName)}.png`;
       mkdirSync(dirname(outPath), { recursive: true });
@@ -138,10 +149,20 @@ async function main(): Promise<void> {
   const cubes = series.map((s) => s.cube);
   const png =
     args.chart === 'muggy'
-      ? renderChartCached('muggy', cubes, () => renderMuggyComparisonSvg(series))
+      ? renderChartCached('muggy', cubes, () => renderMuggyComparisonSvg(series, theme), theme.name)
       : args.chart === 'wetday'
-        ? renderChartCached('wetday', cubes, () => renderWetDayComparisonSvg(series))
-        : renderChartCached('heatmap', cubes, () => renderTemperatureComparisonSvg(series));
+        ? renderChartCached(
+            'wetday',
+            cubes,
+            () => renderWetDayComparisonSvg(series, theme),
+            theme.name,
+          )
+        : renderChartCached(
+            'heatmap',
+            cubes,
+            () => renderTemperatureComparisonSvg(series, theme),
+            theme.name,
+          );
 
   const outPath =
     args.out ?? `out/${args.chart}-${series.map((s) => slugify(s.name)).join('-vs-')}.png`;

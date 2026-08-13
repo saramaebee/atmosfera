@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import type { ClimateCube } from '@atmosfera/climate';
 import { renderMuggyComparisonSvg, renderWetDayComparisonSvg } from './muggy';
 import { svgToPng } from './raster';
+import { DARK_THEME, LIGHT_THEME } from './theme';
 
 function makeSyntheticCube(name: string, peak: number): ClimateCube {
   const muggyProbability = new Array<number>(365);
@@ -40,6 +41,15 @@ describe('renderMuggyComparisonSvg', () => {
     expect(svg).toStartWith('<svg xmlns="http://www.w3.org/2000/svg"');
     expect(svg).toContain('Test City');
     expect(svg).toContain('<path');
+  });
+
+  it('renders dark by default and light on request', () => {
+    const cities = [{ name: 'Test City', cube: makeSyntheticCube('Test City', 0.8) }];
+    const dark = renderMuggyComparisonSvg(cities);
+    const light = renderMuggyComparisonSvg(cities, LIGHT_THEME);
+    expect(dark).toContain(`fill="${DARK_THEME.bg}"`);
+    expect(light).toContain(`fill="${LIGHT_THEME.bg}"`);
+    expect(light).not.toBe(dark);
   });
 
   it('renders a two-city comparison SVG with area + line per city', () => {

@@ -1,4 +1,5 @@
 import { type ForecastNow, type UpcomingHour, cToF } from '@atmosfera/climate';
+import { type ChartTheme, DARK_THEME } from './theme';
 import { weatherInfo } from './weather-codes';
 import { weatherIconSvg } from './weather-icons';
 
@@ -28,10 +29,6 @@ export interface NowCardInput {
 export const NOW_CARD_WIDTH = 900;
 const HEIGHT = 448;
 const PAD = 40;
-
-const TEXT = '#111827';
-const MUTED = '#6b7280';
-const DIVIDER = '#eef2f7';
 
 const COMPASS_POINTS = [
   'N',
@@ -106,10 +103,13 @@ export function nowCardInputFromForecast(
   };
 }
 
-export function renderNowCardSvg(input: NowCardInput): string {
+export function renderNowCardSvg(input: NowCardInput, theme: ChartTheme = DARK_THEME): string {
   const { current, upcoming } = input;
   const info = weatherInfo(current.weatherCode, current.isDay);
   const innerWidth = NOW_CARD_WIDTH - PAD * 2;
+  const TEXT = theme.text;
+  const MUTED = theme.muted;
+  const DIVIDER = theme.divider;
 
   // Header: condition + city top-left, weekday · time top-right.
   const header = `
@@ -121,7 +121,7 @@ export function renderNowCardSvg(input: NowCardInput): string {
   const tempC = Math.round(current.tempC);
   const tempF = Math.round(cToF(current.tempC));
   const hero = `
-  ${weatherIconSvg(info.icon, PAD, 116, 96)}
+  ${weatherIconSvg(info.icon, PAD, 116, 96, theme.name)}
   <text x="164" y="182" font-family="sans-serif"><tspan font-size="56" font-weight="700" fill="${TEXT}">${tempC}°C</tspan><tspan font-size="26" fill="${MUTED}" dx="10">/ ${tempF}°F</tspan></text>`;
 
   // Hourly strip: 7 equal columns.
@@ -134,7 +134,7 @@ export function renderNowCardSvg(input: NowCardInput): string {
       const f = Math.round(cToF(h.tempC));
       return `
   <text x="${cx.toFixed(2)}" y="262" font-size="13" fill="${MUTED}" text-anchor="middle" font-family="sans-serif">${hourLabel(h.timeIso)}</text>
-  ${weatherIconSvg(hourly.icon, cx - 20, 274, 40)}
+  ${weatherIconSvg(hourly.icon, cx - 20, 274, 40, theme.name)}
   <text x="${cx.toFixed(2)}" y="344" font-size="20" font-weight="700" fill="${TEXT}" text-anchor="middle" font-family="sans-serif">${c}°</text>
   <text x="${cx.toFixed(2)}" y="362" font-size="12" fill="${MUTED}" text-anchor="middle" font-family="sans-serif">${f}°F</text>`;
     })
@@ -146,6 +146,6 @@ export function renderNowCardSvg(input: NowCardInput): string {
   <text x="${NOW_CARD_WIDTH - PAD}" y="424" font-size="14" fill="${MUTED}" text-anchor="end" font-family="sans-serif">Wind ${Math.round(current.windSpeedKmh)} km/h ${compassPoint(current.windDirectionDeg)}</text>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${NOW_CARD_WIDTH}" height="${HEIGHT}" viewBox="0 0 ${NOW_CARD_WIDTH} ${HEIGHT}">
-  <rect width="${NOW_CARD_WIDTH}" height="${HEIGHT}" fill="#ffffff"/>${header}${hero}${strip}${footer}
+  <rect width="${NOW_CARD_WIDTH}" height="${HEIGHT}" fill="${theme.bg}"/>${header}${hero}${strip}${footer}
 </svg>`;
 }

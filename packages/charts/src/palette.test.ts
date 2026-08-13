@@ -17,6 +17,11 @@ describe('colorForCelsius', () => {
     expect(colorForCelsius(Number.POSITIVE_INFINITY)).toBe(NA_COLOR);
   });
 
+  it('honors a themed NA color without affecting band colors', () => {
+    expect(colorForCelsius(Number.NaN, '#334155')).toBe('#334155');
+    expect(colorForCelsius(20, '#334155')).toBe(colorForCelsius(20));
+  });
+
   it('picks the correct band at boundaries', () => {
     expect(bandForCelsius(-50)?.name).toBe('frigid');
     expect(bandForCelsius(-9)?.name).toBe('freezing'); // -9 inclusive in freezing

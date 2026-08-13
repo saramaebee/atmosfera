@@ -6,6 +6,7 @@ import { type RadarMode, buildRenderedMessage } from '../lib/charts';
 import { resolveCitiesOrPrompt } from '../lib/cities';
 import { chatInputRegisterOptions } from '../lib/commandScope';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { addThemeOption, getThemeOption } from '../lib/theme-option';
 
 const SCOPE = { baseline: 'everyone' } as const;
 registerScope('radar', SCOPE);
@@ -37,24 +38,26 @@ export class RadarCommand extends Command {
     registry.registerChatInputCommand(
       (builder) =>
         applyScopeToBuilder(
-          builder
-            .setName('radar')
-            .setDescription('Animated precipitation radar for a city — past 2 hours or nowcast')
-            .addStringOption((opt) =>
-              opt
-                .setName('city')
-                .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName('mode')
-                .setDescription('Past loop or nowcast (default: past)')
-                .addChoices(
-                  { name: 'Past 2 hours', value: 'past' },
-                  { name: 'Nowcast (next ~30 min)', value: 'nowcast' },
-                ),
-            ),
+          addThemeOption(
+            builder
+              .setName('radar')
+              .setDescription('Animated precipitation radar for a city — past 2 hours or nowcast')
+              .addStringOption((opt) =>
+                opt
+                  .setName('city')
+                  .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
+                  .setRequired(true),
+              )
+              .addStringOption((opt) =>
+                opt
+                  .setName('mode')
+                  .setDescription('Past loop or nowcast (default: past)')
+                  .addChoices(
+                    { name: 'Past 2 hours', value: 'past' },
+                    { name: 'Nowcast (next ~30 min)', value: 'nowcast' },
+                  ),
+              ),
+          ),
           SCOPE,
         ),
       chatInputRegisterOptions(),
@@ -64,6 +67,7 @@ export class RadarCommand extends Command {
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const query = interaction.options.getString('city', true);
     const mode = (interaction.options.getString('mode') ?? 'past') as RadarMode;
+    const theme = getThemeOption(interaction);
 
     // Availability is checked against the live catalog, before geocoding: no
     // point resolving a city for frames that don't exist. The catalog is
@@ -83,12 +87,20 @@ export class RadarCommand extends Command {
       }
     }
 
-    const cities = await resolveCitiesOrPrompt(interaction, 'radar', [query], undefined, mode);
+    const cities = await resolveCitiesOrPrompt(interaction, 'radar', [query], {
+      radarMode: mode,
+      theme,
+    });
     if (!cities) return;
 
     await interaction.deferReply();
 
-    const rendered = await buildRenderedMessage({ command: 'radar', cities, radarMode: mode });
+    const rendered = await buildRenderedMessage({
+      command: 'radar',
+      cities,
+      radarMode: mode,
+      theme,
+    });
     await interaction.editReply(rendered);
   }
 }

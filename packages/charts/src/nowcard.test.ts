@@ -7,6 +7,7 @@ import {
   renderNowCardSvg,
 } from './nowcard';
 import { svgToPng } from './raster';
+import { DARK_THEME, LIGHT_THEME } from './theme';
 
 const fixture: NowCardInput = {
   cityName: "Coeur d'Alene, Idaho, United States",
@@ -95,11 +96,22 @@ describe('renderNowCardSvg', () => {
     expect(svg).toContain('Saturday · 2 PM');
     expect(svg).toContain('Humidity 62%');
     expect(svg).toContain('Wind 14 km/h NE');
-    // 7 hourly columns, each with a bold °-only temp label.
-    expect(svg.match(/font-weight="700" fill="#111827" text-anchor="middle"/g)).toHaveLength(7);
+    // 7 hourly columns, each with a bold °-only temp label (dark theme text).
+    expect(
+      svg.match(
+        new RegExp(`font-weight="700" fill="${DARK_THEME.text}" text-anchor="middle"`, 'g'),
+      ),
+    ).toHaveLength(7);
   });
 
   it('rasterizes without throwing', () => {
     expect(() => svgToPng(svg)).not.toThrow();
+  });
+
+  it('renders dark by default and light on request', () => {
+    expect(svg).toContain(`fill="${DARK_THEME.bg}"`);
+    const light = renderNowCardSvg(fixture, LIGHT_THEME);
+    expect(light).toContain(`fill="${LIGHT_THEME.bg}"`);
+    expect(light).not.toBe(svg);
   });
 });

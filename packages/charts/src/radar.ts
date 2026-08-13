@@ -1,9 +1,7 @@
 import { GIFEncoder, applyPalette, quantize } from 'gifenc';
+import { type ChartTheme, DARK_THEME } from './theme';
 
 export const RADAR_GIF_SIZE = 512;
-
-const TEXT = '#111827';
-const MUTED = '#4b5563';
 
 function escapeXml(s: string): string {
   return s
@@ -57,11 +55,18 @@ export interface RadarFrameSvgInput {
    * the basemap is identical across animation frames, so encode it once.
    */
   basemapImages: (string | null)[];
+  /**
+   * Optional transparent place-labels layer (same grid/encoding as
+   * basemapImages), drawn above the rain so precipitation never obscures city
+   * names, brightened per theme.labelsBoost.
+   */
+  labelImages?: (string | null)[];
   radarTiles: (Buffer | null)[];
   timeLabel: string;
   cityName: string;
   /** Generation stamp for the bottom bar (see {@link formatGeneratedStamp}). */
   generatedLabel: string;
+  theme?: ChartTheme;
 }
 
 const TILE = 256;
@@ -85,12 +90,26 @@ function tileImages(hrefs: (string | null)[], cols: number, extra = ''): string 
 /** One radar animation frame: basemap + radar tiles cropped to the window, city marker, timestamp, attribution. */
 export function renderRadarFrameSvg(input: RadarFrameSvgInput): string {
   const { width, height, cols, offsetX, offsetY, timeLabel, cityName, generatedLabel } = input;
+  const { backdrop, labelsBoost, pillFill, pillOpacity, barFill, barOpacity, text, muted } = (
+    input.theme ?? DARK_THEME
+  ).radar;
   const cx = width / 2;
   const cy = height / 2;
   const pillWidth = 30 + timeLabel.length * 9;
 
+  const hasLabels = (input.labelImages?.length ?? 0) > 0;
+  const boostDefs = hasLabels
+    ? `<defs><filter id="labelboost"><feComponentTransfer><feFuncR type="linear" slope="${labelsBoost}"/><feFuncG type="linear" slope="${labelsBoost}"/><feFuncB type="linear" slope="${labelsBoost}"/></feComponentTransfer></filter></defs>
+  `
+    : '';
+  const labelLayer = hasLabels
+    ? `<g filter="url(#labelboost)">
+    ${tileImages(input.labelImages!, cols)}
+    </g>`
+    : '';
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <rect width="${width}" height="${height}" fill="#e8e8e6"/>
+  ${boostDefs}<rect width="${width}" height="${height}" fill="${backdrop}"/>
   <g transform="translate(${-offsetX},${-offsetY})">
     ${tileImages(input.basemapImages, cols)}
     ${tileImages(
@@ -98,15 +117,16 @@ export function renderRadarFrameSvg(input: RadarFrameSvgInput): string {
       cols,
       ' opacity="0.75"',
     )}
+    ${labelLayer}
   </g>
-  <circle cx="${cx}" cy="${cy}" r="7" fill="white" stroke="${MUTED}" stroke-width="1"/>
+  <circle cx="${cx}" cy="${cy}" r="7" fill="white" stroke="#4b5563" stroke-width="1"/>
   <circle cx="${cx}" cy="${cy}" r="4" fill="#2563eb"/>
-  <rect x="12" y="12" width="${pillWidth}" height="30" rx="15" fill="white" fill-opacity="0.85"/>
-  <text x="${12 + pillWidth / 2}" y="33" font-size="15" font-weight="700" fill="${TEXT}" text-anchor="middle" font-family="sans-serif">${escapeXml(timeLabel)}</text>
-  <text x="${width - 12}" y="33" font-size="13" fill="${TEXT}" text-anchor="end" font-family="sans-serif">${escapeXml(cityName)}</text>
-  <rect x="0" y="${height - 20}" width="${width}" height="20" fill="white" fill-opacity="0.8"/>
-  <text x="8" y="${height - 6}" font-size="10" fill="${MUTED}" font-family="sans-serif">radar © RainViewer · map © OpenStreetMap contributors © CARTO</text>
-  <text x="${width - 8}" y="${height - 6}" font-size="10" fill="${MUTED}" text-anchor="end" font-family="sans-serif"><tspan font-weight="700">atmósfera</tspan> · ${escapeXml(generatedLabel)}</text>
+  <rect x="12" y="12" width="${pillWidth}" height="30" rx="15" fill="${pillFill}" fill-opacity="${pillOpacity}"/>
+  <text x="${12 + pillWidth / 2}" y="33" font-size="15" font-weight="700" fill="${text}" text-anchor="middle" font-family="sans-serif">${escapeXml(timeLabel)}</text>
+  <text x="${width - 12}" y="33" font-size="13" fill="${text}" text-anchor="end" font-family="sans-serif">${escapeXml(cityName)}</text>
+  <rect x="0" y="${height - 20}" width="${width}" height="20" fill="${barFill}" fill-opacity="${barOpacity}"/>
+  <text x="8" y="${height - 6}" font-size="10" fill="${muted}" font-family="sans-serif">radar © RainViewer · map © OpenStreetMap contributors © CARTO</text>
+  <text x="${width - 8}" y="${height - 6}" font-size="10" fill="${muted}" text-anchor="end" font-family="sans-serif"><tspan font-weight="700">atmósfera</tspan> · ${escapeXml(generatedLabel)}</text>
 </svg>`;
 }
 

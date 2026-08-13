@@ -2,6 +2,7 @@ import { Command } from '@sapphire/framework';
 import { buildRenderedMessage } from '../lib/charts';
 import { resolveCitiesOrPrompt } from '../lib/cities';
 import { applyScopeToBuilder, registerScope } from '../lib/permissions';
+import { addThemeOption, getThemeOption } from '../lib/theme-option';
 
 const devGuildId = process.env.DISCORD_DEV_GUILD_ID;
 
@@ -21,15 +22,17 @@ export class WetCommand extends Command {
     registry.registerChatInputCommand(
       (builder) =>
         applyScopeToBuilder(
-          builder
-            .setName('wet')
-            .setDescription('Wet-day probability across the year for a city')
-            .addStringOption((opt) =>
-              opt
-                .setName('city')
-                .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
-                .setRequired(true),
-            ),
+          addThemeOption(
+            builder
+              .setName('wet')
+              .setDescription('Wet-day probability across the year for a city')
+              .addStringOption((opt) =>
+                opt
+                  .setName('city')
+                  .setDescription('e.g. "Buenos Aires" or "Columbia, South Carolina"')
+                  .setRequired(true),
+              ),
+          ),
           SCOPE,
         ),
       devGuildId ? { guildIds: [devGuildId], idHints: [] } : { idHints: [] },
@@ -38,8 +41,9 @@ export class WetCommand extends Command {
 
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     const query = interaction.options.getString('city', true);
+    const theme = getThemeOption(interaction);
 
-    const cities = await resolveCitiesOrPrompt(interaction, 'wet', [query]);
+    const cities = await resolveCitiesOrPrompt(interaction, 'wet', [query], { theme });
     if (!cities) return;
 
     await interaction.deferReply();
@@ -47,6 +51,7 @@ export class WetCommand extends Command {
     const rendered = await buildRenderedMessage({
       command: 'wet',
       cities,
+      theme,
     });
 
     await interaction.editReply(rendered);

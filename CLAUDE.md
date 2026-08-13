@@ -8,7 +8,7 @@ Discord bot that generates WeatherSpark-style climate comparison charts for citi
 - Language: TypeScript
 - Discord: Sapphire + discord.js
 - DB: SQLite + Drizzle (Postgres later if needed)
-- Rendering: SVG-first — D3 (geometry) + Satori (JSX layout) + Resvg (raster)
+- Rendering: SVG-first — hand-written SVG template literals + D3 (scales/paths where needed) + Resvg (raster). Satori is a declared dependency but unused in practice.
 - Validation: zod
 - Lint/format: Biome
 - Tests: `bun:test` (Vitest-compatible API — switched from Vitest at Phase 0 so `bun:sqlite` works in tests without running Vitest under Bun)
@@ -24,6 +24,7 @@ Discord bot that generates WeatherSpark-style climate comparison charts for citi
 - **City disambiguation is candidate-selection, not lookup.** Never silently pick when ambiguity materially affects the chart. Store successful selections as aliases (global / guild / user scope).
 - **No premature infra.** Avoid Redis, BullMQ, microservices, Kubernetes, Next.js, Prisma until genuinely needed. Bun scripts are the v0 job runner.
 - **Keep the bot thin.** Slash-command routing only. Business logic lives in `packages/`.
+- **All generated graphics are themed.** Colors come from `ChartTheme` tokens (`packages/charts/src/theme.ts`) — never hardcode a new hex in a renderer. Dark is the default; every graphics command exposes a `theme` option (`addThemeOption`/`getThemeOption`), the theme must round-trip through `DisambigSession`, and any cache that stores rendered output or style-specific tiles must key on the theme/style.
 
 ## Planned layout (not scaffolded yet)
 
