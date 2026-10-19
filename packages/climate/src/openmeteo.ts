@@ -53,7 +53,8 @@ export async function fetchHistoricalYear(
   );
   url.searchParams.set('timezone', 'auto');
 
-  const res = await fetch(url);
+  // A year of hourly data is a few MB; generous, but never unbounded.
+  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
   if (!res.ok) {
     throw new Error(
       `Open-Meteo historical fetch failed for ${lat},${lon} ${year}: ${res.status} ${res.statusText}`,

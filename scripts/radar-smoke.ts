@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { type ThemeName, resolveTheme } from '@atmosfera/charts';
+import { type ThemeName, buildRadarGif, resolveTheme } from '@atmosfera/charts';
 import { dbPathFromUrl, getEnv } from '@atmosfera/config';
 import { createDb, migrateDb } from '@atmosfera/db';
 import { formatCandidate, resolveCity } from '@atmosfera/geocode';
-import { buildRadarGif } from '../apps/discord-bot/src/lib/charts';
+import { cityDisplayName } from '../apps/discord-bot/src/lib/cities';
 
 interface Args {
   city: string;
@@ -84,7 +84,11 @@ async function main(): Promise<void> {
     `  → ${city.canonicalName} (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}, tz=${city.timezone})  [${result.via}]\n`,
   );
 
-  const radar = await buildRadarGif(city, 'past', resolveTheme(args.theme));
+  const radar = await buildRadarGif(
+    { ...city, name: cityDisplayName(city) },
+    'past',
+    resolveTheme(args.theme),
+  );
   if (!radar) {
     throw new Error('RainViewer returned no usable frames (upstream outage?). Try again later.');
   }

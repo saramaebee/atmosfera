@@ -57,6 +57,11 @@ const envSchema = z.object({
     .optional(),
   WEB_PORT: intFromEnv(3000),
   WEB_PUBLIC_URL: z.string().url().optional(),
+
+  // Public weather app (apps/public). Loopback-only; Caddy fronts it.
+  PUBLIC_PORT: intFromEnv(3002),
+  // DB-IP "IP to City Lite" database; deploy/refresh-dbip.sh keeps it current.
+  DBIP_MMDB_PATH: z.string().default('.cache/dbip/dbip-city-lite.mmdb'),
 });
 
 export type Env = z.infer<typeof envSchema>;

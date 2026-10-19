@@ -8,6 +8,7 @@ export {
 export { renderTemperatureComparisonSvg, HEATMAP_WIDTH } from './temperature';
 export { svgToPng, svgToRgba } from './raster';
 export {
+  buildRadarGif,
   encodeRadarGif,
   formatFrameTime,
   formatGeneratedStamp,
@@ -16,6 +17,9 @@ export {
   RADAR_GIF_SIZE,
   type RadarFrameSvgInput,
   type RadarGifOptions,
+  type RadarGifResult,
+  type RadarMode,
+  type RadarPlace,
 } from './radar';
 export {
   type NowCardDayEntry,

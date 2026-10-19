@@ -1,33 +1,24 @@
 import {
   type ChartTheme,
   type CitySeries,
-  DARK_THEME,
+  type RadarGifResult,
+  type RadarMode,
   type ThemeName,
+  buildRadarGif,
   compareCubesCanonical,
-  encodeRadarGif,
-  formatFrameTime,
-  formatGeneratedStamp,
   nowCardInputFromForecast,
-  pngTileDataUri,
   renderChartCached,
   renderMuggyComparisonSvg,
   renderNowCardSvg,
-  renderRadarFrameSvg,
   renderTemperatureComparisonSvg,
   renderWetDayComparisonSvg,
   resolveTheme,
   svgToPng,
-  svgToRgba,
 } from '@atmosfera/charts';
 import {
   type ClimateCube,
-  fetchBasemapTile,
   fetchForecastNow,
-  fetchRadarCatalog,
-  fetchRadarTile,
   loadClimateCube,
-  mapWithConcurrency,
-  radarViewport,
   selectDailyForecast,
   selectUpcomingHours,
 } from '@atmosfera/climate';
@@ -45,7 +36,7 @@ import {
 
 export type CommandKind = 'muggy' | 'climate' | 'wet' | 'compare' | 'now' | 'radar';
 export type CompareChartChoice = 'heatmap' | 'muggy' | 'wetday' | 'all';
-export type RadarMode = 'past' | 'nowcast';
+export type { RadarMode };
 
 // URL wrapped in <…> so Discord suppresses the link-preview embed while keeping
 // the masked-link text.
@@ -159,122 +150,6 @@ async function buildNowMessage(city: City, theme: ChartTheme): Promise<RenderedM
 const RADAR_ATTRIBUTION =
   'Radar: [RainViewer](<https://www.rainviewer.com>) · Map: © OpenStreetMap contributors © [CARTO](<https://carto.com>)';
 
-/** Fewer surviving frames than this reads as broken, not as a radar loop. */
-const RADAR_MIN_FRAMES = 4;
-/**
- * A nowcast is short by nature (typically 3 forecast frames plus the current
- * one), so the past-mode threshold would reject healthy nowcast loops.
- */
-const RADAR_MIN_FRAMES_NOWCAST = 2;
-
-export interface RadarGifResult {
-  gif: Buffer;
-  firstLabel: string;
-  lastLabel: string;
-  frameCount: number;
-}
-
-/**
- * Fetch RainViewer frames + CARTO basemap for the city and encode the
- * animated radar loop. Returns null when the upstream catalog has no frames
- * (or too few frames survive tile failures) — callers turn that into a
- * friendly outage message. Shared with scripts/radar-smoke.ts.
- *
- * 'nowcast' renders the forecast frames, anchored on the newest past frame so
- * the loop starts at "now" rather than jumping straight into the future.
- */
-export async function buildRadarGif(
-  city: City,
-  mode: RadarMode = 'past',
-  theme: ChartTheme = DARK_THEME,
-): Promise<RadarGifResult | null> {
-  const catalog = await fetchRadarCatalog();
-  const frames =
-    mode === 'nowcast'
-      ? catalog.radar.nowcast.length > 0
-        ? [...catalog.radar.past.slice(-1), ...catalog.radar.nowcast]
-        : []
-      : catalog.radar.past;
-  const minFrames = mode === 'nowcast' ? RADAR_MIN_FRAMES_NOWCAST : RADAR_MIN_FRAMES;
-  if (frames.length === 0) return null;
-
-  const vp = radarViewport(city.latitude, city.longitude);
-
-  // One deadline across the whole ~117-tile fan-out: without it, a tile-host
-  // outage burns two 10 s timeouts per fetch and holds the deferred
-  // interaction for minutes. Aborted radar tiles degrade to null below, so
-  // the RADAR_MIN_FRAMES check bails out quickly instead.
-  const deadline = AbortSignal.timeout(30_000);
-
-  // Basemap failure throws (a hole in the map looks broken); a failed radar
-  // tile degrades to null at fetch time and drops its whole frame below —
-  // rendered, it would be indistinguishable from "no rain there". The dark
-  // theme fetches a second, transparent labels layer composited above the
-  // rain (see RadarTheme.labelsStyle) — same failure semantics.
-  const { basemapStyle, labelsStyle } = theme.radar;
-  const [basemapTiles, labelTiles] = await Promise.all([
-    Promise.all(
-      vp.tiles.map((t) =>
-        t.y === null ? null : fetchBasemapTile(vp.zoom, t.x, t.y, basemapStyle, deadline),
-      ),
-    ),
-    labelsStyle
-      ? Promise.all(
-          vp.tiles.map((t) =>
-            t.y === null ? null : fetchBasemapTile(vp.zoom, t.x, t.y, labelsStyle, deadline),
-          ),
-        )
-      : null,
-  ]);
-  // The basemap is identical across animation frames — encode the data URIs
-  // once here rather than per frame.
-  const basemapImages = basemapTiles.map((t) => (t === null ? null : pngTileDataUri(t)));
-  const labelImages = labelTiles?.map((t) => (t === null ? null : pngTileDataUri(t)));
-
-  const jobs = frames.flatMap((frame) => vp.tiles.map((tile) => ({ frame, tile })));
-  const fetched = await mapWithConcurrency(jobs, 8, async ({ frame, tile }) => {
-    if (tile.y === null) return null;
-    try {
-      return await fetchRadarTile(catalog.host, frame.path, vp.zoom, tile.x, tile.y, deadline);
-    } catch {
-      return null;
-    }
-  });
-
-  const rgbaFrames: Uint8Array[] = [];
-  const labels: string[] = [];
-  const generatedLabel = formatGeneratedStamp(Date.now(), city.timezone);
-  for (let i = 0; i < frames.length; i++) {
-    const radarTiles = fetched.slice(i * vp.tiles.length, (i + 1) * vp.tiles.length);
-    // Honest frames only: a missing radar tile would render as falsely dry
-    // ground, so a frame with any failed tile is dropped outright. Polar
-    // slots (tile.y === null) are expected blanks, not failures.
-    if (!radarTiles.every((t, j) => t !== null || vp.tiles[j]!.y === null)) continue;
-    const label = formatFrameTime(frames[i]!.time, city.timezone);
-    const svg = renderRadarFrameSvg({
-      width: vp.width,
-      height: vp.height,
-      cols: vp.cols,
-      rows: vp.rows,
-      offsetX: vp.offsetX,
-      offsetY: vp.offsetY,
-      basemapImages,
-      labelImages,
-      radarTiles,
-      timeLabel: label,
-      cityName: cityDisplayName(city),
-      generatedLabel,
-      theme,
-    });
-    rgbaFrames.push(svgToRgba(svg).pixels);
-    labels.push(label);
-  }
-  if (rgbaFrames.length < minFrames) return null;
-
-  const gif = Buffer.from(encodeRadarGif(rgbaFrames, vp.width, vp.height));
-  return { gif, firstLabel: labels[0]!, lastLabel: labels.at(-1)!, frameCount: rgbaFrames.length };
-}
-
 // In-flight builds only — no completed-result cache in v0: a GIF must never
 // outlive the catalog that produced it. (Repeats within a catalog window
 // would be byte-identical; a memoization design keyed by the newest frame
@@ -291,7 +166,9 @@ function buildRadarGifCoalesced(
   const key = `${city.latitude},${city.longitude}:${mode}:${theme.name}`;
   const existing = inFlightRadarBuilds.get(key);
   if (existing) return existing;
-  const build = buildRadarGif(city, mode, theme).finally(() => inFlightRadarBuilds.delete(key));
+  const build = buildRadarGif({ ...city, name: cityDisplayName(city) }, mode, theme).finally(() =>
+    inFlightRadarBuilds.delete(key),
+  );
   inFlightRadarBuilds.set(key, build);
   return build;
 }

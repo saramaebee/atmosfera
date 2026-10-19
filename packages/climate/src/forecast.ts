@@ -78,7 +78,7 @@ export async function fetchForecastNow(lat: number, lon: number): Promise<Foreca
   url.searchParams.set('forecast_days', '8');
   url.searchParams.set('timezone', 'auto');
 
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     throw new Error(
       `Open-Meteo forecast fetch failed for ${lat},${lon}: ${res.status} ${res.statusText}`,
