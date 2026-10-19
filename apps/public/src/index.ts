@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statfsSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { buildRadarGif } from '@atmosfera/charts';
 import { cubeCachePath, fetchForecastNow, loadClimateCube } from '@atmosfera/climate';
 import { getEnv } from '@atmosfera/config';
@@ -38,6 +39,10 @@ const fetch = createHandler({
   fetchForecast: fetchForecastNow,
   buildRadar: buildRadarGif,
   cubeReady: (lat, lon) => existsSync(cubeCachePath(lat, lon)),
+  diskFreeBytes() {
+    const s = statfsSync(dirname(env.DBIP_MMDB_PATH));
+    return s.bavail * s.bsize;
+  },
   loadCube: loadClimateCube,
 });
 
@@ -45,6 +50,8 @@ Bun.serve({
   hostname: '127.0.0.1',
   port: env.PUBLIC_PORT,
   fetch,
+  // Bun's 10s default would cut off a radar request queued behind others.
+  idleTimeout: 120,
   // Never reached (the handler catches everything), but Bun's default logs.
   error: () => new Response('internal error', { status: 500 }),
 });

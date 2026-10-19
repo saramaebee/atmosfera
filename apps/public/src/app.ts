@@ -28,6 +28,7 @@ export interface Deps {
   fetchForecast: (lat: number, lon: number) => Promise<ForecastNow>;
   buildRadar: typeof buildRadarGif;
   cubeReady: (lat: number, lon: number) => boolean;
+  diskFreeBytes: () => number;
   loadCube: typeof loadClimateCube;
 }
 
@@ -38,10 +39,27 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_BYTES = 64 * 1024 * 1024;
 const RADAR_MAX_QUEUE = 3;
 const CUBE_MAX_QUEUE = 20;
+// A cold cube is ~15 archive calls and ~8 MB of disk. Visitors pick the cell,
+// so cap new ones to protect the Open-Meteo quota and the bot's disk.
+const CUBE_DAILY_CAP = 50;
+const CUBE_MIN_FREE_BYTES = 5 * 1024 ** 3;
 
 /** ~25 km cell; the only location granularity used past the lookup. */
 export function snapToCell(lat: number, lon: number): { lat: number; lon: number } {
   return { lat: Math.round(lat / CELL_DEG) * CELL_DEG, lon: Math.round(lon / CELL_DEG) * CELL_DEG };
+}
+
+/** IPv6 hosts get a whole /64, so limit the /64 rather than one address. */
+export function rateKey(ip: string): string {
+  if (!ip.includes(':') || ip.includes('.')) return ip;
+  const [head, tail] = ip.toLowerCase().split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail ? tail.split(':') : [];
+  const groups = tail === undefined ? h : [...h, ...Array(8 - h.length - t.length).fill('0'), ...t];
+  return groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ''))
+    .join(':');
 }
 
 /**
@@ -60,7 +78,7 @@ export function createRateLimiter(limit = RATE_LIMIT, windowMs = RATE_WINDOW_MS)
         for (const [k, e] of entries) if (e.resetAt <= now) entries.delete(k);
         lastSweep = now;
       }
-      const key = createHash('sha256').update(salt).update(ip).digest('base64url');
+      const key = createHash('sha256').update(salt).update(rateKey(ip)).digest('base64url');
       let e = entries.get(key);
       if (!e || e.resetAt <= now) {
         e = { count: 0, resetAt: now + windowMs };
@@ -126,6 +144,8 @@ export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
   const radarQueue = serial(RADAR_MAX_QUEUE);
   const cubeQueue = serial(CUBE_MAX_QUEUE);
   const cubeBuilds = new Set<string>();
+  let cubeDay = '';
+  let cubesToday = 0;
 
   function cacheGet(key: string): Result | null {
     const hit = cache.get(key);
@@ -183,10 +203,19 @@ export function createHandler(deps: Deps): (req: Request) => Promise<Response> {
       // Cold miss is ~15 sequential archive fetches: build in the background
       // and let the client retry rather than hold the request open.
       const cellKey = `${cell.latitude},${cell.longitude}`;
+      const today = new Date().toISOString().slice(0, 10);
+      if (today !== cubeDay) {
+        cubeDay = today;
+        cubesToday = 0;
+      }
+      if (cubesToday >= CUBE_DAILY_CAP || deps.diskFreeBytes() < CUBE_MIN_FREE_BYTES) {
+        return text(503, 'busy', 3600);
+      }
       if (!cubeBuilds.has(cellKey)) {
         const run = cubeQueue(() => deps.loadCube(cubeOpts));
         if (run) {
           cubeBuilds.add(cellKey);
+          cubesToday++;
           run.catch(() => {}).finally(() => cubeBuilds.delete(cellKey));
         }
       }

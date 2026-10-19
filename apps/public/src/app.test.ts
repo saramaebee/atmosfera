@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ClimateCube, ForecastNow } from '@atmosfera/climate';
-import { type Deps, type Located, createHandler, createRateLimiter, snapToCell } from './app';
+import {
+  type Deps,
+  type Located,
+  createHandler,
+  createRateLimiter,
+  rateKey,
+  snapToCell,
+} from './app';
 
 function forecastFixture(): ForecastNow {
   const time: string[] = [];
@@ -63,6 +70,7 @@ function makeDeps(over: Partial<Deps> = {}): Deps & { lookups: string[] } {
       frameCount: 12,
     }),
     cubeReady: () => true,
+    diskFreeBytes: () => 100 * 1024 ** 3,
     loadCube: async () => cube,
     ...over,
   };
@@ -172,6 +180,43 @@ describe('routes', () => {
   });
 });
 
+describe('cold cube limits', () => {
+  it('refuses new cubes when the disk is low', async () => {
+    let builds = 0;
+    const handler = createHandler(
+      makeDeps({
+        cubeReady: () => false,
+        diskFreeBytes: () => 1024 ** 3,
+        loadCube: async () => {
+          builds++;
+          return cube;
+        },
+      }),
+    );
+    const res = await handler(get('/climate.svg?theme=dark'));
+    expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('3600');
+    expect(builds).toBe(0);
+  });
+
+  it('caps new cube builds per day', async () => {
+    let builds = 0;
+    const handler = createHandler(
+      makeDeps({
+        locate: (ip) => ({ latitude: Number(ip.split('.')[3]), longitude: 0, name: 'x' }),
+        cubeReady: () => false,
+        loadCube: async () => {
+          builds++;
+          return cube;
+        },
+      }),
+    );
+    for (let i = 1; i <= 60; i++) await handler(get('/climate.svg?theme=dark', `198.51.100.${i}`));
+    await Bun.sleep(20);
+    expect(builds).toBe(50);
+  });
+});
+
 describe('no logging', () => {
   afterEach(() => {
     for (const s of spies) s.mockRestore();
@@ -246,5 +291,23 @@ describe('createRateLimiter', () => {
     expect(dump).not.toContain('2001:db8::1');
     limiter.hit('192.0.2.3', 5000);
     expect(limiter.entries.size).toBe(1);
+  });
+});
+
+describe('rateKey', () => {
+  it('groups IPv6 by /64 and leaves IPv4 alone', () => {
+    expect(rateKey('192.0.2.1')).toBe('192.0.2.1');
+    expect(rateKey('::ffff:192.0.2.1')).toBe('::ffff:192.0.2.1');
+    expect(rateKey('2001:db8:1:2::1')).toBe('2001:db8:1:2');
+    expect(rateKey('2001:DB8:0001:0002:aaaa::9')).toBe('2001:db8:1:2');
+    expect(rateKey('2001:db8::1')).toBe('2001:db8:0:0');
+    expect(rateKey('2001:db8:1:2:3:4:5:6')).toBe('2001:db8:1:2');
+  });
+
+  it('rate-limits a whole IPv6 /64 together', () => {
+    const limiter = createRateLimiter(1, 1000);
+    expect(limiter.hit('2001:db8:1:2::1', 0)).toBe(0);
+    expect(limiter.hit('2001:db8:1:2::ffff', 0)).toBeGreaterThan(0);
+    expect(limiter.hit('2001:db8:1:3::1', 0)).toBe(0);
   });
 });
