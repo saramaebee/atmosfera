@@ -38,6 +38,16 @@
         "discord.js": "^14.26.4",
       },
     },
+    "apps/public": {
+      "name": "@atmosfera/public",
+      "version": "0.0.0",
+      "dependencies": {
+        "@atmosfera/charts": "workspace:*",
+        "@atmosfera/climate": "workspace:*",
+        "@atmosfera/config": "workspace:*",
+        "mmdb-lib": "^3.0.3",
+      },
+    },
     "apps/web": {
       "name": "@atmosfera/web",
       "version": "0.0.0",
@@ -111,6 +121,8 @@
     "@atmosfera/geocode": ["@atmosfera/geocode@workspace:packages/geocode"],
 
     "@atmosfera/lang-classify": ["@atmosfera/lang-classify@workspace:packages/lang-classify"],
+
+    "@atmosfera/public": ["@atmosfera/public@workspace:apps/public"],
 
     "@atmosfera/web": ["@atmosfera/web@workspace:apps/web"],
 
@@ -465,6 +477,8 @@
     "loose-envify": ["loose-envify@1.4.0", "", { "dependencies": { "js-tokens": "^3.0.0 || ^4.0.0" }, "bin": { "loose-envify": "cli.js" } }, "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q=="],
 
     "magic-bytes.js": ["magic-bytes.js@1.13.0", "", {}, "sha512-afO2mnxW7GDTXMm5/AoN1WuOcdoKhtgXjIvHmobqTD1grNplhGdv3PFOyjCVmrnOZBIT/gD/koDKpYG+0mvHcg=="],
+
+    "mmdb-lib": ["mmdb-lib@3.0.3", "", {}, "sha512-xQPoBXcNjjHiOvOraFBKtA++uNWF6aCVHL9dRKFXEov8eI3QJwtgiw3qApsonFT5SpoqsEVISUTg3HIDs2DiXw=="],
 
     "pako": ["pako@0.2.9", "", {}, "sha512-NUcwaKxUxWrZLpDG+z/xZaCgQITkA/Dv4V/T6bw7VON6l1Xz/VnrBqrYjZQ12TamKHzITTfOEIYUj48y2KXImA=="],
 

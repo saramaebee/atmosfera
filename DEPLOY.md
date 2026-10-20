@@ -206,3 +206,33 @@ For HTTPS on a real domain, put Caddy or nginx in front of `localhost:3000`. The
 auto-deploy workflow restarts `atmosfera-web` alongside the bot on every push to
 `main`, but only if the unit is already installed — so you can hold off on this
 piece without affecting bot deploys.
+
+## Optional: public weather app (apps/public)
+
+`apps/public` serves `/now.svg`, `/radar.gif` and `/climate.svg` (each takes
+`?theme=light|dark`) for the visitor's approximate location, estimated from their IP
+with a local DB-IP City Lite database. It never logs requests: the only output is one
+startup line. It runs as the `atmosfera-public` unit on `127.0.0.1:3002`.
+
+```bash
+bash ~/atmosfera/deploy/install-public.sh
+sudo systemctl start atmosfera-public
+journalctl -u atmosfera-public -f
+```
+
+The install script downloads the database and enables `atmosfera-dbip.timer`, which
+runs `deploy/refresh-dbip.sh` on the 3rd of each month and reloads the app (SIGHUP).
+Optional env: `PUBLIC_PORT` (default 3002), `DBIP_MMDB_PATH` (default
+`.cache/dbip/dbip-city-lite.mmdb`). In the saratonin.dev Caddy site block:
+
+```
+handle_path /weather/* {
+  reverse_proxy 127.0.0.1:3002 {
+    header_up X-Real-IP {remote_host}
+  }
+}
+```
+
+DB-IP Lite is CC BY 4.0: any page showing this data must display "IP Geolocation by
+DB-IP" linking to https://db-ip.com. Auto-deploy restarts `atmosfera-public` when the
+unit is installed.

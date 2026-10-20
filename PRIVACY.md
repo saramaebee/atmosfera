@@ -2,13 +2,14 @@
 
 atmosfera is a climate-charts bot. It does not track members: no message content and no per-user activity data are stored. The privacy-relevant surfaces are the city-lookup flow and the admin tooling (permissions + audit log).
 
-Policy version: **2026-08-11.1**
+Policy version: **2026-10-19.1**
 
 > Mirror of the `/privacy` slash command. Source of truth: `apps/discord-bot/src/lib/privacy-policy.ts`. If anything below diverges from that file, the source file wins — please open an issue.
 
 ## What's stored
 
 - City lookup results, and the aliases created when you pick a disambiguation candidate (scoped global / guild / user).
+- A user-scoped alias stores your Discord user ID together with the query and the city you picked, so your next lookup of that query skips the picker. Untick "Save as alias" before picking to skip saving it.
 - Command permission rules (`/permissions`) and the audit log of admin actions.
 - Web dashboard sessions (login state for server admins).
 
@@ -20,8 +21,21 @@ Policy version: **2026-08-11.1**
 
 ## Third parties
 
-- **Open-Meteo** — receives city coordinates / timezone for climate fetches. No user data.
-- **Nominatim** (geocoding fallback) — receives city query strings. No user data.
+- **Open-Meteo**: receives city query strings (geocoding) and city coordinates / timezone for climate fetches. No user data.
+- **RainViewer** (radar tiles) and **CARTO** (basemap tiles): receive the map area around a location. No user data.
+- **DB-IP**: [IP Geolocation by DB-IP](https://db-ip.com). The public weather endpoint uses the DB-IP "IP to City Lite" database (licensed CC BY 4.0) as a local file on the server; nothing is sent to DB-IP.
+
+## Public weather endpoint
+
+A separate service (`apps/public`) at [saratonin.dev/weather/](https://saratonin.dev/weather/) serves a now-card SVG, a past-radar GIF and a temperature climatology SVG for your approximate location.
+
+- Your IP address (received from the reverse proxy) is used only in memory to estimate an approximate location via the local DB-IP database. No third-party lookup.
+- The location is immediately rounded to a 0.25° grid cell (about 25 km). The IP and location are never logged or written to disk.
+- For rate limiting, a salted hash of the IP (salt random per process, never stored) is held in memory for up to 5 minutes.
+- Rendered images are cached in memory for 10 minutes, keyed by grid cell and theme (not by IP).
+- Only the rounded grid cell is sent to Open-Meteo (forecast and historical archive), RainViewer (radar tiles cover the area around it) and CARTO (basemap tiles).
+- Climatology data derived for a grid cell is cached on disk, keyed by the grid cell coordinates only.
+- No cookies, no accounts.
 
 ## Your controls
 
